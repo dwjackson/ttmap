@@ -63,7 +63,10 @@ impl Map {
 
     fn find_node(&self, p: Point) -> &NodeHandle {
         let key = p.x() + (self.width + 1) * p.y();
-        self.point_nodes.get(&key).unwrap()
+        match self.point_nodes.get(&key) {
+            Some(h) => h,
+            None => panic!("Point is not within map {:?}", p),
+        }
     }
 
     pub fn are_connected(&self, p1: Point, p2: Point) -> bool {
