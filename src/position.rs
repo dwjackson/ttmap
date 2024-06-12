@@ -8,7 +8,7 @@
  * Copyright (c) 2024 David Jackson
  */
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Position {
     pub line: usize,
     pub col: usize,

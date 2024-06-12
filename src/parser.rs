@@ -8,7 +8,9 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::ast::{AbstractSyntaxTree, EntityNode, ShapeNode};
+use crate::ast::GridDimensionsNode;
+
+use super::ast::{AbstractSyntaxTree, AstNode, AstNodeType, EntityNode, ShapeNode};
 use super::entities::EntityPosition;
 use super::lexer::lex;
 use super::parse_error::{GridMapperParseError, GridMapperParseErrorType, SyntaxError};
@@ -31,16 +33,17 @@ impl Parser {
     fn parse(mut self) -> Result<AbstractSyntaxTree, GridMapperParseError> {
         let mut ast = AbstractSyntaxTree::new();
 
-        self.parse_grid_dimensions(&mut ast)?;
+        let grid_dimensions_node = self.parse_grid_dimensions(&mut ast)?;
+        ast.add_node(grid_dimensions_node);
 
         while self.next_matches_any(&[TokenType::Rect, TokenType::Entity, TokenType::Xor]) {
             let boolean_op = self.parse_boolean_op();
             if self.next_matches(TokenType::Rect) {
                 let node = self.parse_rect(boolean_op)?;
-                ast.add_shape(node);
+                ast.add_node(node);
             } else if self.next_matches(TokenType::Entity) {
                 let node = self.parse_entity()?;
-                ast.add_entity(node);
+                ast.add_node(node);
             } else {
                 panic!("Unexpected token type");
             }
@@ -52,13 +55,14 @@ impl Parser {
     fn parse_grid_dimensions(
         &mut self,
         ast: &mut AbstractSyntaxTree,
-    ) -> Result<(), GridMapperParseError> {
-        self.accept(TokenType::Grid)?;
+    ) -> Result<AstNode, GridMapperParseError> {
+        let position = self.accept(TokenType::Grid)?.position;
         let width = self.accept_number()?;
         self.accept(TokenType::Comma)?;
         let height = self.accept_number()?;
-        ast.set_grid_dimensions(width, height);
-        Ok(())
+        let node_type = AstNodeType::GridDimensionsNode(GridDimensionsNode::new(width, height));
+        let node = AstNode::new(node_type, position);
+        Ok(node)
     }
 
     fn parse_boolean_op(&mut self) -> ShapeBoolean {
@@ -70,8 +74,8 @@ impl Parser {
         }
     }
 
-    fn parse_rect(&mut self, boolean_op: ShapeBoolean) -> Result<ShapeNode, GridMapperParseError> {
-        self.accept(TokenType::Rect)?;
+    fn parse_rect(&mut self, boolean_op: ShapeBoolean) -> Result<AstNode, GridMapperParseError> {
+        let position = self.accept(TokenType::Rect)?.position;
         self.accept(TokenType::At)?;
         let point = self.parse_point()?;
         self.accept(TokenType::Width)?;
@@ -79,8 +83,10 @@ impl Parser {
         self.accept(TokenType::Height)?;
         let height = self.accept_number()? as usize;
         let rect = Rect::new(point, width, height, boolean_op);
-        let rect_node = ShapeNode::Rect(rect);
-        Ok(rect_node)
+        let shape_node = ShapeNode::RectNode(rect);
+        let node_type = AstNodeType::ShapeNode(shape_node);
+        let node = AstNode::new(node_type, position);
+        Ok(node)
     }
 
     fn parse_point(&mut self) -> Result<Point, GridMapperParseError> {
@@ -90,8 +96,8 @@ impl Parser {
         Ok(Point::new(x, y))
     }
 
-    fn parse_entity(&mut self) -> Result<EntityNode, GridMapperParseError> {
-        self.accept(TokenType::Entity)?;
+    fn parse_entity(&mut self) -> Result<AstNode, GridMapperParseError> {
+        let node_position = self.accept(TokenType::Entity)?.position;
         let shape_token_type = self.parse_shape()?;
         let position: EntityPosition;
         if self.next_matches(TokenType::Within) {
@@ -136,11 +142,13 @@ impl Parser {
             }
         };
 
-        Ok(EntityNode {
+        let node_type = AstNodeType::EntityNode(EntityNode {
             shape,
             point,
             position,
-        })
+        });
+        let node = AstNode::new(node_type, node_position);
+        Ok(node)
     }
 
     fn parse_shape(&mut self) -> Result<TokenType, GridMapperParseError> {
@@ -235,9 +243,14 @@ mod tests {
     fn test_parse_grid_dimensions() {
         let input = "grid 5, 3";
         let ast = parse(input).expect("Bad parse");
-        let grid_node = ast.grid_dimensions().unwrap();
-        assert_eq!(grid_node.width(), 5);
-        assert_eq!(grid_node.height(), 3);
+        let grid_node = ast.nodes().next().unwrap();
+        match grid_node.node_type() {
+            AstNodeType::GridDimensionsNode(grid_node) => {
+                assert_eq!(grid_node.width(), 5);
+                assert_eq!(grid_node.height(), 3);
+            }
+            _ => panic!("No dimensions"),
+        }
     }
 
     #[test]
@@ -259,25 +272,19 @@ mod tests {
     fn test_parse_rect() {
         let input = "grid 10, 10\nrect at 1, 2 width 3 height 2";
         let ast = parse(input).expect("Bad parse");
-        assert_eq!(ast.shapes().len(), 1);
-        let shape = &ast.shapes()[0];
-        match shape {
-            ShapeNode::Rect(rect) => {
-                assert_eq!(rect.point().x(), 1);
-                assert_eq!(rect.point().y(), 2);
-                assert_eq!(rect.width(), 3);
-                assert_eq!(rect.height(), 2);
-                assert!(matches!(rect.boolean_op(), ShapeBoolean::Or));
-            }
-        }
+        let rect = rect_at_index(&ast, 1);
+        assert_eq!(rect.point().x(), 1);
+        assert_eq!(rect.point().y(), 2);
+        assert_eq!(rect.width(), 3);
+        assert_eq!(rect.height(), 2);
+        assert!(matches!(rect.boolean_op(), ShapeBoolean::Or));
     }
 
     #[test]
     fn test_parse_circular_entity() {
         let input = "grid 10, 10\nentity circle within 5,7";
         let ast = parse(input).expect("Bad parse");
-        assert_eq!(ast.entities().len(), 1);
-        let entity = &ast.entities()[0];
+        let entity = entity_at_index(&ast, 1);
         assert!(matches!(entity.shape, Shape::Circle(0)));
         assert_eq!(entity.point.x(), 5);
         assert_eq!(entity.point.y(), 7);
@@ -287,27 +294,47 @@ mod tests {
     fn test_parse_rect_with_xor() {
         let input = "grid 10, 10\nrect at 1, 2 width 3 height 2\nxor rect at 4,2 width 2 height 2";
         let ast = parse(input).expect("Bad parse");
-        assert_eq!(ast.shapes().len(), 2);
-        let shape = &ast.shapes()[1];
-        match shape {
-            ShapeNode::Rect(rect) => {
-                assert_eq!(rect.point().x(), 4);
-                assert_eq!(rect.point().y(), 2);
-                assert_eq!(rect.width(), 2);
-                assert_eq!(rect.height(), 2);
-                assert!(matches!(rect.boolean_op(), ShapeBoolean::Xor));
-            }
-        }
+        let rect = rect_at_index(&ast, 2);
+        assert_eq!(rect.point().x(), 4);
+        assert_eq!(rect.point().y(), 2);
+        assert_eq!(rect.width(), 2);
+        assert_eq!(rect.height(), 2);
+        assert!(matches!(rect.boolean_op(), ShapeBoolean::Xor));
     }
 
     #[test]
     fn test_parse_circular_entity_at_point() {
         let input = "grid 10, 10\nentity circle at 5,6 radius 2";
         let ast = parse(input).expect("Bad parse");
-        assert_eq!(ast.entities().len(), 1);
-        let entity = &ast.entities()[0];
+        let entity = entity_at_index(&ast, 1);
         assert!(matches!(entity.shape, Shape::Circle(2)));
         assert_eq!(entity.point.x(), 5);
         assert_eq!(entity.point.y(), 6);
+    }
+
+    fn rect_at_index(ast: &AbstractSyntaxTree, index: usize) -> &Rect {
+        let mut nodes = ast.nodes();
+        for _ in 0..index {
+            nodes.next();
+        }
+        let node = nodes.next().unwrap();
+        match node.node_type() {
+            AstNodeType::ShapeNode(shape_node) => match shape_node {
+                ShapeNode::RectNode(rect) => rect,
+            },
+            _ => panic!("Not a rect node: {:?}", node.node_type()),
+        }
+    }
+
+    fn entity_at_index(ast: &AbstractSyntaxTree, index: usize) -> &EntityNode {
+        let mut nodes = ast.nodes();
+        for _ in 0..index {
+            nodes.next();
+        }
+        let node = nodes.next().unwrap();
+        match node.node_type() {
+            AstNodeType::EntityNode(e) => &e,
+            _ => panic!("Not an entity node: {:?}", node.node_type()),
+        }
     }
 }

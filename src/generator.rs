@@ -8,11 +8,13 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::ast::{AbstractSyntaxTree, ShapeNode};
-use super::entities::Entity;
-use super::map::Map;
-use super::points::Point;
-use super::shapes::{Rect, ShapeBoolean};
+use crate::ast::AstNodeType;
+
+use crate::ast::{AbstractSyntaxTree, GridDimensionsNode, ShapeNode};
+use crate::entities::Entity;
+use crate::map::Map;
+use crate::points::Point;
+use crate::shapes::{Rect, ShapeBoolean};
 
 #[derive(Debug)]
 pub enum GridMapperGenerateError {
@@ -20,7 +22,7 @@ pub enum GridMapperGenerateError {
 }
 
 pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, GridMapperGenerateError> {
-    let dims = ast.grid_dimensions();
+    let dims = find_grid_dimensions(ast);
     if dims.is_none() {
         return Err(GridMapperGenerateError::NoGridDimensions);
     }
@@ -28,18 +30,38 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, GridMapperGenerateE
 
     let mut map = Map::new(dims.width(), dims.height());
 
-    for shape in ast.shapes() {
-        match shape {
-            ShapeNode::Rect(rect) => handle_rect(&mut map, rect),
+    for ast_node in ast.nodes() {
+        match ast_node.node_type() {
+            AstNodeType::GridDimensionsNode(_) => (),
+            AstNodeType::ShapeNode(shape_node) => match shape_node {
+                ShapeNode::RectNode(rect) => {
+                    handle_rect(&mut map, &rect);
+                }
+            },
+            AstNodeType::EntityNode(entity_node) => {
+                let entity =
+                    Entity::new(entity_node.shape, entity_node.point, entity_node.position);
+                map.add_entity(entity);
+            }
         }
     }
 
-    for entity_node in ast.entities() {
-        let entity = Entity::new(entity_node.shape, entity_node.point, entity_node.position);
-        map.add_entity(entity);
-    }
-
     Ok(map)
+}
+
+fn find_grid_dimensions(ast: &AbstractSyntaxTree) -> Option<&GridDimensionsNode> {
+    let node = ast
+        .nodes()
+        .find(|n| matches!(n.node_type(), AstNodeType::GridDimensionsNode(_)));
+    if node.is_none() {
+        return None;
+    }
+    let node = node.unwrap();
+    if let AstNodeType::GridDimensionsNode(g) = node.node_type() {
+        Some(&g)
+    } else {
+        None
+    }
 }
 
 fn handle_rect(map: &mut Map, rect: &Rect) {
@@ -97,13 +119,15 @@ fn point(x: usize, y: usize) -> Point {
 
 #[cfg(test)]
 mod tests {
-    use super::super::shapes::ShapeBoolean;
     use super::*;
+    use crate::ast::AstNode;
+    use crate::position::Position;
+    use crate::shapes::ShapeBoolean;
 
     #[test]
     fn test_generate_empty_map() {
         let mut ast = AbstractSyntaxTree::new();
-        ast.set_grid_dimensions(4, 3);
+        ast.add_node(dimensions(4, 3));
         let map = generate_map(&ast).expect("Bad generate");
         assert_eq!(map.width(), 4);
         assert_eq!(map.height(), 3);
@@ -112,9 +136,9 @@ mod tests {
     #[test]
     fn test_map_with_single_cell_rectangle() {
         let mut ast = AbstractSyntaxTree::new();
-        ast.set_grid_dimensions(1, 1);
+        ast.add_node(dimensions(1, 1));
         let rect = Rect::new(Point::new(0, 0), 1, 1, ShapeBoolean::Or);
-        ast.add_shape(ShapeNode::Rect(rect));
+        ast.add_node(rect_node(rect));
         let map = generate_map(&ast).expect("Bad generate");
         assert!(map.are_connected(point(0, 0), point(1, 0)));
         assert!(map.are_connected(point(0, 0), point(0, 1)));
@@ -125,9 +149,9 @@ mod tests {
     #[test]
     fn test_map_with_single_nontrivial_rectangle() {
         let mut ast = AbstractSyntaxTree::new();
-        ast.set_grid_dimensions(10, 10);
+        ast.add_node(dimensions(10, 10));
         let rect = Rect::new(Point::new(2, 1), 3, 2, ShapeBoolean::Or);
-        ast.add_shape(ShapeNode::Rect(rect));
+        ast.add_node(rect_node(rect));
         let map = generate_map(&ast).expect("Bad generate");
 
         // Top
@@ -168,15 +192,29 @@ mod tests {
     #[test]
     fn test_xor_rectangles() {
         let mut ast = AbstractSyntaxTree::new();
-        ast.set_grid_dimensions(10, 10);
+        ast.add_node(dimensions(10, 10));
         let rect1 = Rect::new(Point::new(2, 1), 3, 2, ShapeBoolean::Or);
-        ast.add_shape(ShapeNode::Rect(rect1));
+        ast.add_node(rect_node(rect1));
         let rect2 = Rect::new(Point::new(5, 1), 2, 2, ShapeBoolean::Xor);
-        ast.add_shape(ShapeNode::Rect(rect2));
+        ast.add_node(rect_node(rect2));
         let map = generate_map(&ast).expect("Bad generate");
 
         // Check that the overlapped lines are not connected because of the XOR
         assert!(!map.are_connected(point(5, 1), point(5, 2)));
         assert!(!map.are_connected(point(5, 2), point(5, 3)));
+    }
+
+    fn dimensions(width: u32, height: u32) -> AstNode {
+        let grid_dimensions_node = GridDimensionsNode::new(width, height);
+        let node_type = AstNodeType::GridDimensionsNode(grid_dimensions_node);
+        let position = Position { line: 1, col: 1 };
+        AstNode::new(node_type, position)
+    }
+
+    fn rect_node(rect: Rect) -> AstNode {
+        let shape_node = ShapeNode::RectNode(rect);
+        let node_type = AstNodeType::ShapeNode(shape_node);
+        let position = Position { line: 1, col: 1 };
+        AstNode::new(node_type, position)
     }
 }

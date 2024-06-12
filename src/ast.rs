@@ -11,47 +11,51 @@
 use super::entities::EntityPosition;
 use super::points::Point;
 use super::shapes::{Rect, Shape};
+use crate::position::Position;
 
 #[derive(Debug)]
 pub struct AbstractSyntaxTree {
-    grid_dimensions_node: Option<GridDimensionsNode>,
-    shapes: Vec<ShapeNode>,
-    entities: Vec<EntityNode>,
+    nodes: Vec<AstNode>,
 }
 
 impl AbstractSyntaxTree {
     pub fn new() -> AbstractSyntaxTree {
-        AbstractSyntaxTree {
-            grid_dimensions_node: None,
-            shapes: Vec::new(),
-            entities: Vec::new(),
+        AbstractSyntaxTree { nodes: Vec::new() }
+    }
+
+    pub fn add_node(&mut self, node: AstNode) {
+        self.nodes.push(node);
+    }
+
+    pub fn nodes(&self) -> std::slice::Iter<'_, AstNode> {
+        self.nodes.iter()
+    }
+}
+
+#[derive(Debug)]
+pub struct AstNode {
+    position: Position,
+    node_type: AstNodeType,
+}
+
+impl AstNode {
+    pub fn new(node_type: AstNodeType, position: Position) -> AstNode {
+        AstNode {
+            position,
+            node_type,
         }
     }
 
-    pub fn set_grid_dimensions(&mut self, width: u32, height: u32) {
-        let node = GridDimensionsNode::new(width, height);
-        self.grid_dimensions_node = Some(node);
+    pub fn node_type(&self) -> &AstNodeType {
+        &self.node_type
     }
+}
 
-    pub fn grid_dimensions(&self) -> Option<&GridDimensionsNode> {
-        self.grid_dimensions_node.as_ref()
-    }
-
-    pub fn shapes(&self) -> &Vec<ShapeNode> {
-        &self.shapes
-    }
-
-    pub fn add_shape(&mut self, node: ShapeNode) {
-        self.shapes.push(node);
-    }
-
-    pub fn entities(&self) -> &Vec<EntityNode> {
-        &self.entities
-    }
-
-    pub fn add_entity(&mut self, node: EntityNode) {
-        self.entities.push(node);
-    }
+#[derive(Debug)]
+pub enum AstNodeType {
+    GridDimensionsNode(GridDimensionsNode),
+    ShapeNode(ShapeNode),
+    EntityNode(EntityNode),
 }
 
 #[derive(Debug)]
@@ -79,7 +83,7 @@ impl GridDimensionsNode {
 
 #[derive(Debug)]
 pub enum ShapeNode {
-    Rect(Rect),
+    RectNode(Rect),
 }
 
 #[derive(Debug)]
