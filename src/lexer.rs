@@ -8,7 +8,7 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::parse_error::{GridMapperParseError, GridMapperParseErrorType};
+use super::compile_error::{CompileError, CompileErrorType};
 use super::token::{Token, TokenType};
 
 const SINGLE_LINE_COMMENT_CHAR: char = '#';
@@ -22,7 +22,7 @@ struct Lexer {
 }
 
 impl Lexer {
-    fn analyze(mut self) -> Result<Vec<Token>, GridMapperParseError> {
+    fn analyze(mut self) -> Result<Vec<Token>, CompileError> {
         while self.i < self.chars.len() {
             let ch = self.chars[self.i];
             if ch.is_alphabetic() {
@@ -46,8 +46,8 @@ impl Lexer {
             } else if ch == SINGLE_LINE_COMMENT_CHAR {
                 self.lex_single_line_comment();
             } else {
-                return Err(GridMapperParseError::new(
-                    GridMapperParseErrorType::InvalidCharacter,
+                return Err(CompileError::new(
+                    CompileErrorType::InvalidCharacter,
                     self.line,
                     self.col,
                 ));
@@ -56,7 +56,7 @@ impl Lexer {
         Ok(self.tokens)
     }
 
-    fn lex_identifier(&mut self) -> Result<Token, GridMapperParseError> {
+    fn lex_identifier(&mut self) -> Result<Token, CompileError> {
         let col = self.col;
         let identifier = self.lex_while(|ch| ch.is_alphabetic());
         let keywords = [
@@ -77,21 +77,21 @@ impl Lexer {
         {
             Ok(Token::new(keywords[index].1, self.line, col))
         } else {
-            Err(GridMapperParseError::new(
-                GridMapperParseErrorType::UnrecognizedKeyword,
+            Err(CompileError::new(
+                CompileErrorType::UnrecognizedKeyword,
                 self.line,
                 col,
             ))
         }
     }
 
-    fn lex_number(&mut self) -> Result<Token, GridMapperParseError> {
+    fn lex_number(&mut self) -> Result<Token, CompileError> {
         let col = self.col;
         let s = self.lex_while(|ch| ch.is_ascii_digit());
         match s.parse::<u32>() {
             Ok(n) => Ok(Token::new(TokenType::Number(n), self.line, col)),
-            Err(_) => Err(GridMapperParseError::new(
-                GridMapperParseErrorType::InvalidNumber,
+            Err(_) => Err(CompileError::new(
+                CompileErrorType::InvalidNumber,
                 self.line,
                 col,
             )),
@@ -125,7 +125,7 @@ impl Lexer {
     }
 }
 
-pub fn lex(input: &str) -> Result<Vec<Token>, GridMapperParseError> {
+pub fn lex(input: &str) -> Result<Vec<Token>, CompileError> {
     let lexer = Lexer {
         chars: input.chars().collect(),
         i: 0,
@@ -186,7 +186,7 @@ mod tests {
         if let Err(err) = lex(input) {
             assert!(matches!(
                 err.error_type,
-                GridMapperParseErrorType::UnrecognizedKeyword
+                CompileErrorType::UnrecognizedKeyword
             ));
             assert_eq!(err.position.line, 1);
             assert_eq!(err.position.col, 1);

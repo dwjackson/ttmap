@@ -9,13 +9,13 @@
  */
 
 mod ast;
+mod compile_error;
 pub mod compiler;
 mod entities;
 mod generator;
 mod graph;
 mod lexer;
 pub mod map;
-mod parse_error;
 mod parser;
 mod points;
 mod position;

@@ -50,28 +50,29 @@ impl Map {
     }
 
     pub fn connect(&mut self, p1: Point, p2: Point) {
-        let h1 = *self.find_node(p1);
-        let h2 = *self.find_node(p2);
+        let h1 = *self.find_node(p1).unwrap();
+        let h2 = *self.find_node(p2).unwrap();
         self.graph.add_edge(h1, h2);
     }
 
     pub fn disconnect(&mut self, p1: Point, p2: Point) {
-        let h1 = *self.find_node(p1);
-        let h2 = *self.find_node(p2);
+        let h1 = *self.find_node(p1).unwrap();
+        let h2 = *self.find_node(p2).unwrap();
         self.graph.remove_edge(h1, h2);
     }
 
-    fn find_node(&self, p: Point) -> &NodeHandle {
+    fn find_node(&self, p: Point) -> Option<&NodeHandle> {
         let key = p.x() + (self.width + 1) * p.y();
-        match self.point_nodes.get(&key) {
-            Some(h) => h,
-            None => panic!("Point is not within map {:?}", p),
-        }
+        self.point_nodes.get(&key)
+    }
+
+    pub fn point_exists(&self, p: Point) -> bool {
+        self.find_node(p).is_some()
     }
 
     pub fn are_connected(&self, p1: Point, p2: Point) -> bool {
-        let h1 = *self.find_node(p1);
-        let h2 = *self.find_node(p2);
+        let h1 = *self.find_node(p1).unwrap();
+        let h2 = *self.find_node(p2).unwrap();
         self.graph.is_edge_between(h1, h2)
     }
 

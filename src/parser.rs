@@ -11,14 +11,14 @@
 use crate::ast::GridDimensionsNode;
 
 use super::ast::{AbstractSyntaxTree, AstNode, AstNodeType, EntityNode, ShapeNode};
+use super::compile_error::{CompileError, CompileErrorType, SyntaxError};
 use super::entities::EntityPosition;
 use super::lexer::lex;
-use super::parse_error::{GridMapperParseError, GridMapperParseErrorType, SyntaxError};
 use super::points::Point;
 use super::shapes::{Rect, Shape, ShapeBoolean};
 use super::token::{Token, TokenType};
 
-pub fn parse(input: &str) -> Result<AbstractSyntaxTree, GridMapperParseError> {
+pub fn parse(input: &str) -> Result<AbstractSyntaxTree, CompileError> {
     let tokens = lex(input)?;
     let parser = Parser { tokens, i: 0 };
     parser.parse()
@@ -30,7 +30,7 @@ struct Parser {
 }
 
 impl Parser {
-    fn parse(mut self) -> Result<AbstractSyntaxTree, GridMapperParseError> {
+    fn parse(mut self) -> Result<AbstractSyntaxTree, CompileError> {
         let mut ast = AbstractSyntaxTree::new();
 
         let grid_dimensions_node = self.parse_grid_dimensions(&mut ast)?;
@@ -55,7 +55,7 @@ impl Parser {
     fn parse_grid_dimensions(
         &mut self,
         ast: &mut AbstractSyntaxTree,
-    ) -> Result<AstNode, GridMapperParseError> {
+    ) -> Result<AstNode, CompileError> {
         let position = self.accept(TokenType::Grid)?.position;
         let width = self.accept_number()?;
         self.accept(TokenType::Comma)?;
@@ -74,7 +74,7 @@ impl Parser {
         }
     }
 
-    fn parse_rect(&mut self, boolean_op: ShapeBoolean) -> Result<AstNode, GridMapperParseError> {
+    fn parse_rect(&mut self, boolean_op: ShapeBoolean) -> Result<AstNode, CompileError> {
         let position = self.accept(TokenType::Rect)?.position;
         self.accept(TokenType::At)?;
         let point = self.parse_point()?;
@@ -89,14 +89,14 @@ impl Parser {
         Ok(node)
     }
 
-    fn parse_point(&mut self) -> Result<Point, GridMapperParseError> {
+    fn parse_point(&mut self) -> Result<Point, CompileError> {
         let x = self.accept_number()? as usize;
         self.accept(TokenType::Comma)?;
         let y = self.accept_number()? as usize;
         Ok(Point::new(x, y))
     }
 
-    fn parse_entity(&mut self) -> Result<AstNode, GridMapperParseError> {
+    fn parse_entity(&mut self) -> Result<AstNode, CompileError> {
         let node_position = self.accept(TokenType::Entity)?.position;
         let shape_token_type = self.parse_shape()?;
         let position: EntityPosition;
@@ -108,15 +108,15 @@ impl Parser {
             position = EntityPosition::At;
         } else if !self.is_at_end() {
             let tok = self.peek().unwrap();
-            return Err(GridMapperParseError::new(
-                GridMapperParseErrorType::InvalidPosition,
+            return Err(CompileError::new(
+                CompileErrorType::InvalidPosition,
                 tok.position.line,
                 tok.position.col,
             ));
         } else {
             let tok = self.tokens.last().unwrap();
-            return Err(GridMapperParseError::new(
-                GridMapperParseErrorType::UnexpectedEndOfFile,
+            return Err(CompileError::new(
+                CompileErrorType::UnexpectedEndOfFile,
                 tok.position.line,
                 tok.position.col,
             ));
@@ -151,11 +151,11 @@ impl Parser {
         Ok(node)
     }
 
-    fn parse_shape(&mut self) -> Result<TokenType, GridMapperParseError> {
+    fn parse_shape(&mut self) -> Result<TokenType, CompileError> {
         if self.is_at_end() {
             let tok = self.tokens.last().unwrap();
-            Err(GridMapperParseError::new(
-                GridMapperParseErrorType::UnexpectedEndOfFile,
+            Err(CompileError::new(
+                CompileErrorType::UnexpectedEndOfFile,
                 tok.position.line,
                 tok.position.col,
             ))
@@ -163,15 +163,15 @@ impl Parser {
             Ok(self.consume()?.token_type)
         } else {
             let token = self.consume()?;
-            Err(GridMapperParseError::new(
-                GridMapperParseErrorType::InvalidShape,
+            Err(CompileError::new(
+                CompileErrorType::InvalidShape,
                 token.position.line,
                 token.position.col,
             ))
         }
     }
 
-    fn accept(&mut self, token_type: TokenType) -> Result<&Token, GridMapperParseError> {
+    fn accept(&mut self, token_type: TokenType) -> Result<&Token, CompileError> {
         let token = self.consume()?;
         if token_type_matches(token, token_type) {
             Ok(token)
@@ -180,7 +180,7 @@ impl Parser {
         }
     }
 
-    fn accept_number(&mut self) -> Result<u32, GridMapperParseError> {
+    fn accept_number(&mut self) -> Result<u32, CompileError> {
         let token = self.consume()?;
         match token.token_type {
             TokenType::Number(n) => Ok(n),
@@ -188,10 +188,10 @@ impl Parser {
         }
     }
 
-    fn consume(&mut self) -> Result<&Token, GridMapperParseError> {
+    fn consume(&mut self) -> Result<&Token, CompileError> {
         if self.i >= self.tokens.len() {
-            return Err(GridMapperParseError::new(
-                GridMapperParseErrorType::UnexpectedEndOfFile,
+            return Err(CompileError::new(
+                CompileErrorType::UnexpectedEndOfFile,
                 0,
                 0,
             ));
@@ -229,10 +229,10 @@ fn token_type_matches(token: &Token, token_type: TokenType) -> bool {
     std::mem::discriminant(&token.token_type) == std::mem::discriminant(&token_type)
 }
 
-fn syntax_error(expected: TokenType, token: &Token) -> GridMapperParseError {
+fn syntax_error(expected: TokenType, token: &Token) -> CompileError {
     let actual = token.token_type;
-    let err_type = GridMapperParseErrorType::SyntaxError(SyntaxError::new(expected, actual));
-    GridMapperParseError::new(err_type, token.position.line, token.position.col)
+    let err_type = CompileErrorType::SyntaxError(SyntaxError::new(expected, actual));
+    CompileError::new(err_type, token.position.line, token.position.col)
 }
 
 #[cfg(test)]
@@ -259,7 +259,7 @@ mod tests {
         match parse(input) {
             Ok(_) => panic!("Should fail"),
             Err(err) => match err.error_type {
-                GridMapperParseErrorType::SyntaxError(err) => {
+                CompileErrorType::SyntaxError(err) => {
                     assert!(matches!(err.expected(), TokenType::Number(0)));
                     assert!(matches!(err.actual(), TokenType::Width));
                 }

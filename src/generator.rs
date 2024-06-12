@@ -11,20 +11,17 @@
 use crate::ast::AstNodeType;
 
 use crate::ast::{AbstractSyntaxTree, GridDimensionsNode, ShapeNode};
+use crate::compile_error::{CompileError, CompileErrorType};
 use crate::entities::Entity;
 use crate::map::Map;
 use crate::points::Point;
+use crate::position::Position;
 use crate::shapes::{Rect, ShapeBoolean};
 
-#[derive(Debug)]
-pub enum GridMapperGenerateError {
-    NoGridDimensions,
-}
-
-pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, GridMapperGenerateError> {
+pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
     let dims = find_grid_dimensions(ast);
     if dims.is_none() {
-        return Err(GridMapperGenerateError::NoGridDimensions);
+        return Err(CompileError::new(CompileErrorType::NoGridDimensions, 1, 1));
     }
     let dims = dims.unwrap();
 
@@ -35,7 +32,7 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, GridMapperGenerateE
             AstNodeType::GridDimensionsNode(_) => (),
             AstNodeType::ShapeNode(shape_node) => match shape_node {
                 ShapeNode::RectNode(rect) => {
-                    handle_rect(&mut map, &rect);
+                    handle_rect(&mut map, &rect, ast_node.position())?;
                 }
             },
             AstNodeType::EntityNode(entity_node) => {
@@ -64,7 +61,7 @@ fn find_grid_dimensions(ast: &AbstractSyntaxTree) -> Option<&GridDimensionsNode>
     }
 }
 
-fn handle_rect(map: &mut Map, rect: &Rect) {
+fn handle_rect(map: &mut Map, rect: &Rect, position: Position) -> Result<(), CompileError> {
     // Connect all the points on the perimiter of the rectangle
     let x = rect.point().x();
     let y = rect.point().y();
@@ -73,32 +70,48 @@ fn handle_rect(map: &mut Map, rect: &Rect) {
     for i in 0..rect.width() {
         let start = point(x + i, y);
         let end = point(x + i + 1, y);
-        handle_points(map, rect, start, end);
+        handle_points(map, rect, start, end, position)?;
     }
 
     // Connect the "left side" of the rectangle
     for i in 0..rect.height() {
         let start = point(x, y + i);
         let end = point(x, y + i + 1);
-        handle_points(map, rect, start, end);
+        handle_points(map, rect, start, end, position)?;
     }
 
     // Connect the "bottom side" of the rectangle
     for i in 0..rect.width() {
         let start = point(x + i, y + rect.height());
         let end = point(x + i + 1, y + rect.height());
-        handle_points(map, rect, start, end);
+        handle_points(map, rect, start, end, position)?;
     }
 
     // Connect the "right side" of the rectangle
     for i in 0..rect.height() {
         let start = point(x + rect.width(), y + i);
         let end = point(x + rect.width(), y + i + 1);
-        handle_points(map, rect, start, end);
+        handle_points(map, rect, start, end, position)?;
     }
+
+    Ok(())
 }
 
-fn handle_points(map: &mut Map, rect: &Rect, start: Point, end: Point) {
+fn handle_points(
+    map: &mut Map,
+    rect: &Rect,
+    start: Point,
+    end: Point,
+    position: Position,
+) -> Result<(), CompileError> {
+    if !map.point_exists(start) || !map.point_exists(end) {
+        return Err(CompileError::new(
+            CompileErrorType::OutOfBounds,
+            position.line,
+            position.col,
+        ));
+    }
+
     match rect.boolean_op() {
         ShapeBoolean::Or => {
             map.connect(start, end);
@@ -111,6 +124,7 @@ fn handle_points(map: &mut Map, rect: &Rect, start: Point, end: Point) {
             }
         }
     }
+    Ok(())
 }
 
 fn point(x: usize, y: usize) -> Point {
@@ -202,6 +216,20 @@ mod tests {
         // Check that the overlapped lines are not connected because of the XOR
         assert!(!map.are_connected(point(5, 1), point(5, 2)));
         assert!(!map.are_connected(point(5, 2), point(5, 3)));
+    }
+
+    #[test]
+    fn test_rect_out_of_bounds() {
+        let mut ast = AbstractSyntaxTree::new();
+        ast.add_node(dimensions(5, 5));
+        let rect = Rect::new(Point::new(2, 2), 10, 10, ShapeBoolean::Or);
+        ast.add_node(rect_node(rect));
+        match generate_map(&ast) {
+            Ok(_) => panic!("Should fail"),
+            Err(e) => {
+                assert!(matches!(e.error_type, CompileErrorType::OutOfBounds));
+            }
+        }
     }
 
     fn dimensions(width: u32, height: u32) -> AstNode {

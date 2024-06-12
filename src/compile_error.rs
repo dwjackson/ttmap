@@ -12,18 +12,14 @@ use super::position::Position;
 use super::token::TokenType;
 
 #[derive(Debug)]
-pub struct GridMapperParseError {
-    pub error_type: GridMapperParseErrorType,
+pub struct CompileError {
+    pub error_type: CompileErrorType,
     pub position: Position,
 }
 
-impl GridMapperParseError {
-    pub fn new(
-        error_type: GridMapperParseErrorType,
-        line: usize,
-        col: usize,
-    ) -> GridMapperParseError {
-        GridMapperParseError {
+impl CompileError {
+    pub fn new(error_type: CompileErrorType, line: usize, col: usize) -> CompileError {
+        CompileError {
             error_type,
             position: Position { line, col },
         }
@@ -31,7 +27,7 @@ impl GridMapperParseError {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum GridMapperParseErrorType {
+pub enum CompileErrorType {
     InvalidCharacter,
     UnrecognizedKeyword,
     InvalidNumber,
@@ -39,6 +35,8 @@ pub enum GridMapperParseErrorType {
     SyntaxError(SyntaxError),
     InvalidShape,
     InvalidPosition,
+    NoGridDimensions,
+    OutOfBounds,
 }
 
 #[derive(Debug, Clone, Copy)]

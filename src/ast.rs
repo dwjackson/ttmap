@@ -49,6 +49,10 @@ impl AstNode {
     pub fn node_type(&self) -> &AstNodeType {
         &self.node_type
     }
+
+    pub fn position(&self) -> Position {
+        self.position
+    }
 }
 
 #[derive(Debug)]
