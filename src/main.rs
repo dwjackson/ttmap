@@ -19,7 +19,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        println!("USAGE: ttmap [MAP_FILE]");
+        println!("USAGE: ttmap [MAP_FILE] [DIMENSION?]");
         std::process::exit(1);
     }
 
