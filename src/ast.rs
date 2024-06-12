@@ -11,7 +11,7 @@
 use super::entities::EntityPosition;
 use super::points::Point;
 use super::shapes::{Rect, Shape};
-use crate::position::Position;
+use crate::source_position::SourcePosition;
 
 #[derive(Debug)]
 pub struct AbstractSyntaxTree {
@@ -34,12 +34,12 @@ impl AbstractSyntaxTree {
 
 #[derive(Debug)]
 pub struct AstNode {
-    position: Position,
+    position: SourcePosition,
     node_type: AstNodeType,
 }
 
 impl AstNode {
-    pub fn new(node_type: AstNodeType, position: Position) -> AstNode {
+    pub fn new(node_type: AstNodeType, position: SourcePosition) -> AstNode {
         AstNode {
             position,
             node_type,
@@ -50,7 +50,7 @@ impl AstNode {
         &self.node_type
     }
 
-    pub fn position(&self) -> Position {
+    pub fn position(&self) -> SourcePosition {
         self.position
     }
 }

@@ -8,20 +8,20 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::position::Position;
+use super::source_position::SourcePosition;
 use super::token::TokenType;
 
 #[derive(Debug)]
 pub struct CompileError {
     pub error_type: CompileErrorType,
-    pub position: Position,
+    pub position: SourcePosition,
 }
 
 impl CompileError {
     pub fn new(error_type: CompileErrorType, line: usize, col: usize) -> CompileError {
         CompileError {
             error_type,
-            position: Position { line, col },
+            position: SourcePosition { line, col },
         }
     }
 }

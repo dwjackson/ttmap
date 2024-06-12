@@ -15,8 +15,8 @@ use crate::compile_error::{CompileError, CompileErrorType};
 use crate::entities::Entity;
 use crate::map::Map;
 use crate::points::Point;
-use crate::position::Position;
 use crate::shapes::{Rect, ShapeBoolean};
+use crate::source_position::SourcePosition;
 
 pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
     let dims = find_grid_dimensions(ast);
@@ -59,7 +59,7 @@ fn find_grid_dimensions(ast: &AbstractSyntaxTree) -> Option<&GridDimensionsNode>
     }
 }
 
-fn handle_rect(map: &mut Map, rect: &Rect, position: Position) -> Result<(), CompileError> {
+fn handle_rect(map: &mut Map, rect: &Rect, position: SourcePosition) -> Result<(), CompileError> {
     // Connect all the points on the perimiter of the rectangle
     let x = rect.point().x();
     let y = rect.point().y();
@@ -100,7 +100,7 @@ fn handle_points(
     rect: &Rect,
     start: Point,
     end: Point,
-    position: Position,
+    position: SourcePosition,
 ) -> Result<(), CompileError> {
     if !map.point_exists(start) || !map.point_exists(end) {
         return Err(CompileError::new(
@@ -133,7 +133,6 @@ fn point(x: usize, y: usize) -> Point {
 mod tests {
     use super::*;
     use crate::ast::AstNode;
-    use crate::position::Position;
     use crate::shapes::ShapeBoolean;
 
     #[test]
@@ -233,14 +232,14 @@ mod tests {
     fn dimensions(width: u32, height: u32) -> AstNode {
         let grid_dimensions_node = GridDimensionsNode::new(width, height);
         let node_type = AstNodeType::GridDimensions(grid_dimensions_node);
-        let position = Position { line: 1, col: 1 };
+        let position = SourcePosition { line: 1, col: 1 };
         AstNode::new(node_type, position)
     }
 
     fn rect_node(rect: Rect) -> AstNode {
         let shape_node = ShapeNode::Rect(rect);
         let node_type = AstNodeType::Shape(shape_node);
-        let position = Position { line: 1, col: 1 };
+        let position = SourcePosition { line: 1, col: 1 };
         AstNode::new(node_type, position)
     }
 }

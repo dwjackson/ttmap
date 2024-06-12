@@ -9,7 +9,7 @@
  */
 
 #[derive(Debug, Clone, Copy)]
-pub struct Position {
+pub struct SourcePosition {
     pub line: usize,
     pub col: usize,
 }

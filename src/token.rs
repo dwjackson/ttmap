@@ -8,19 +8,19 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::position::Position;
+use super::source_position::SourcePosition;
 
 #[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    pub position: Position,
+    pub position: SourcePosition,
 }
 
 impl Token {
     pub fn new(token_type: TokenType, line: usize, col: usize) -> Token {
         Token {
             token_type,
-            position: Position { line, col },
+            position: SourcePosition { line, col },
         }
     }
 }

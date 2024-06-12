@@ -18,7 +18,7 @@ mod lexer;
 pub mod map;
 mod parser;
 mod points;
-mod position;
+mod source_position;
 mod shapes;
 mod svg;
 mod token;
