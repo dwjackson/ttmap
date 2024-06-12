@@ -33,7 +33,7 @@ impl Parser {
     fn parse(mut self) -> Result<AbstractSyntaxTree, CompileError> {
         let mut ast = AbstractSyntaxTree::new();
 
-        let grid_dimensions_node = self.parse_grid_dimensions(&mut ast)?;
+        let grid_dimensions_node = self.parse_grid_dimensions()?;
         ast.add_node(grid_dimensions_node);
 
         while self.next_matches_any(&[TokenType::Rect, TokenType::Entity, TokenType::Xor]) {
@@ -52,15 +52,12 @@ impl Parser {
         Ok(ast)
     }
 
-    fn parse_grid_dimensions(
-        &mut self,
-        ast: &mut AbstractSyntaxTree,
-    ) -> Result<AstNode, CompileError> {
+    fn parse_grid_dimensions(&mut self) -> Result<AstNode, CompileError> {
         let position = self.accept(TokenType::Grid)?.position;
         let width = self.accept_number()?;
         self.accept(TokenType::Comma)?;
         let height = self.accept_number()?;
-        let node_type = AstNodeType::GridDimensionsNode(GridDimensionsNode::new(width, height));
+        let node_type = AstNodeType::GridDimensions(GridDimensionsNode::new(width, height));
         let node = AstNode::new(node_type, position);
         Ok(node)
     }
@@ -83,8 +80,8 @@ impl Parser {
         self.accept(TokenType::Height)?;
         let height = self.accept_number()? as usize;
         let rect = Rect::new(point, width, height, boolean_op);
-        let shape_node = ShapeNode::RectNode(rect);
-        let node_type = AstNodeType::ShapeNode(shape_node);
+        let shape_node = ShapeNode::Rect(rect);
+        let node_type = AstNodeType::Shape(shape_node);
         let node = AstNode::new(node_type, position);
         Ok(node)
     }
@@ -142,7 +139,7 @@ impl Parser {
             }
         };
 
-        let node_type = AstNodeType::EntityNode(EntityNode {
+        let node_type = AstNodeType::Entity(EntityNode {
             shape,
             point,
             position,
@@ -245,7 +242,7 @@ mod tests {
         let ast = parse(input).expect("Bad parse");
         let grid_node = ast.nodes().next().unwrap();
         match grid_node.node_type() {
-            AstNodeType::GridDimensionsNode(grid_node) => {
+            AstNodeType::GridDimensions(grid_node) => {
                 assert_eq!(grid_node.width(), 5);
                 assert_eq!(grid_node.height(), 3);
             }
@@ -319,8 +316,8 @@ mod tests {
         }
         let node = nodes.next().unwrap();
         match node.node_type() {
-            AstNodeType::ShapeNode(shape_node) => match shape_node {
-                ShapeNode::RectNode(rect) => rect,
+            AstNodeType::Shape(shape_node) => match shape_node {
+                ShapeNode::Rect(rect) => rect,
             },
             _ => panic!("Not a rect node: {:?}", node.node_type()),
         }
@@ -333,7 +330,7 @@ mod tests {
         }
         let node = nodes.next().unwrap();
         match node.node_type() {
-            AstNodeType::EntityNode(e) => &e,
+            AstNodeType::Entity(e) => &e,
             _ => panic!("Not an entity node: {:?}", node.node_type()),
         }
     }

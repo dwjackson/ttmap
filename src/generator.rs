@@ -29,13 +29,13 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
 
     for ast_node in ast.nodes() {
         match ast_node.node_type() {
-            AstNodeType::GridDimensionsNode(_) => (),
-            AstNodeType::ShapeNode(shape_node) => match shape_node {
-                ShapeNode::RectNode(rect) => {
-                    handle_rect(&mut map, &rect, ast_node.position())?;
+            AstNodeType::GridDimensions(_) => (),
+            AstNodeType::Shape(shape_node) => match shape_node {
+                ShapeNode::Rect(rect) => {
+                    handle_rect(&mut map, rect, ast_node.position())?;
                 }
             },
-            AstNodeType::EntityNode(entity_node) => {
+            AstNodeType::Entity(entity_node) => {
                 let entity =
                     Entity::new(entity_node.shape, entity_node.point, entity_node.position);
                 map.add_entity(entity);
@@ -49,13 +49,11 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
 fn find_grid_dimensions(ast: &AbstractSyntaxTree) -> Option<&GridDimensionsNode> {
     let node = ast
         .nodes()
-        .find(|n| matches!(n.node_type(), AstNodeType::GridDimensionsNode(_)));
-    if node.is_none() {
-        return None;
-    }
+        .find(|n| matches!(n.node_type(), AstNodeType::GridDimensions(_)));
+    node?;
     let node = node.unwrap();
-    if let AstNodeType::GridDimensionsNode(g) = node.node_type() {
-        Some(&g)
+    if let AstNodeType::GridDimensions(g) = node.node_type() {
+        Some(g)
     } else {
         None
     }
@@ -234,14 +232,14 @@ mod tests {
 
     fn dimensions(width: u32, height: u32) -> AstNode {
         let grid_dimensions_node = GridDimensionsNode::new(width, height);
-        let node_type = AstNodeType::GridDimensionsNode(grid_dimensions_node);
+        let node_type = AstNodeType::GridDimensions(grid_dimensions_node);
         let position = Position { line: 1, col: 1 };
         AstNode::new(node_type, position)
     }
 
     fn rect_node(rect: Rect) -> AstNode {
-        let shape_node = ShapeNode::RectNode(rect);
-        let node_type = AstNodeType::ShapeNode(shape_node);
+        let shape_node = ShapeNode::Rect(rect);
+        let node_type = AstNodeType::Shape(shape_node);
         let position = Position { line: 1, col: 1 };
         AstNode::new(node_type, position)
     }

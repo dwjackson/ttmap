@@ -57,9 +57,9 @@ impl AstNode {
 
 #[derive(Debug)]
 pub enum AstNodeType {
-    GridDimensionsNode(GridDimensionsNode),
-    ShapeNode(ShapeNode),
-    EntityNode(EntityNode),
+    GridDimensions(GridDimensionsNode),
+    Shape(ShapeNode),
+    Entity(EntityNode),
 }
 
 #[derive(Debug)]
@@ -87,7 +87,7 @@ impl GridDimensionsNode {
 
 #[derive(Debug)]
 pub enum ShapeNode {
-    RectNode(Rect),
+    Rect(Rect),
 }
 
 #[derive(Debug)]
