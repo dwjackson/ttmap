@@ -88,6 +88,10 @@ The valid sides are:
 * `left`
 * `right`
 
+Vertical lines (along the left or right) are always drawn down from their
+starting point. Horizontal lines (along the top or bottom) are always drawn
+to the right from their starting point.
+
 ## Entities
 
 Map entities are things "on" the map as opposed to _part of_ the map. They
