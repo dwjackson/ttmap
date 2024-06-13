@@ -10,12 +10,12 @@
 
 use crate::ast::AstNodeType;
 
-use crate::ast::{AbstractSyntaxTree, GridDimensionsNode, ShapeNode};
+use crate::ast::{AbstractSyntaxTree, EntityNode, GridDimensionsNode, ShapeNode};
 use crate::compile_error::{CompileError, CompileErrorType};
 use crate::entities::Entity;
 use crate::map::Map;
 use crate::points::Point;
-use crate::shapes::{Rect, ShapeBoolean};
+use crate::shapes::{Rect, Shape, ShapeBoolean};
 use crate::source_position::SourcePosition;
 
 pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
@@ -36,9 +36,7 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
                 }
             },
             AstNodeType::Entity(entity_node) => {
-                let entity =
-                    Entity::new(entity_node.shape, entity_node.point, entity_node.position);
-                map.add_entity(entity);
+                handle_entity(&mut map, entity_node, ast_node.position())?;
             }
         }
     }
@@ -95,6 +93,40 @@ fn handle_rect(map: &mut Map, rect: &Rect, position: SourcePosition) -> Result<(
     Ok(())
 }
 
+fn handle_entity(
+    map: &mut Map,
+    entity_node: &EntityNode,
+    position: SourcePosition,
+) -> Result<(), CompileError> {
+    match entity_node.shape {
+        Shape::Circle(r) => {
+            // Check for out-of-bounds
+            let center = entity_node.point;
+            if r > center.x() {
+                return Err(out_of_bounds(position));
+            }
+            let left = Point::new(center.x() - r, center.y());
+            if r > center.y() {
+                return Err(out_of_bounds(position));
+            }
+            let top = Point::new(center.x(), center.y() - r);
+            let right = Point::new(center.x() + r, center.y());
+            let bottom = Point::new(center.x() + r, center.y());
+            let points = [center, left, top, right, bottom];
+            if points.iter().any(|p| !map.point_exists(*p)) {
+                return Err(out_of_bounds(position));
+            }
+        }
+    }
+    let entity = Entity::new(entity_node.shape, entity_node.point, entity_node.position);
+    map.add_entity(entity);
+    Ok(())
+}
+
+fn out_of_bounds(position: SourcePosition) -> CompileError {
+    CompileError::new(CompileErrorType::OutOfBounds, position.line, position.col)
+}
+
 fn handle_points(
     map: &mut Map,
     rect: &Rect,
@@ -132,8 +164,9 @@ fn point(x: usize, y: usize) -> Point {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::AstNode;
-    use crate::shapes::ShapeBoolean;
+    use crate::ast::{AstNode, EntityNode};
+    use crate::entities::EntityPosition;
+    use crate::shapes::{Shape, ShapeBoolean};
 
     #[test]
     fn test_generate_empty_map() {
@@ -229,6 +262,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_entity_out_of_bounds() {
+        let mut ast = AbstractSyntaxTree::new();
+        ast.add_node(dimensions(5, 5));
+        ast.add_node(circle_entity(Point::new(4, 3), 4));
+        match generate_map(&ast) {
+            Ok(_) => panic!("Should fail"),
+            Err(e) => {
+                assert!(matches!(e.error_type, CompileErrorType::OutOfBounds));
+            }
+        }
+    }
+
     fn dimensions(width: u32, height: u32) -> AstNode {
         let grid_dimensions_node = GridDimensionsNode::new(width, height);
         let node_type = AstNodeType::GridDimensions(grid_dimensions_node);
@@ -239,6 +285,17 @@ mod tests {
     fn rect_node(rect: Rect) -> AstNode {
         let shape_node = ShapeNode::Rect(rect);
         let node_type = AstNodeType::Shape(shape_node);
+        let position = SourcePosition { line: 1, col: 1 };
+        AstNode::new(node_type, position)
+    }
+
+    fn circle_entity(point: Point, radius: usize) -> AstNode {
+        let entity_node = EntityNode {
+            shape: Shape::Circle(radius),
+            point,
+            position: EntityPosition::At,
+        };
+        let node_type = AstNodeType::Entity(entity_node);
         let position = SourcePosition { line: 1, col: 1 };
         AstNode::new(node_type, position)
     }
