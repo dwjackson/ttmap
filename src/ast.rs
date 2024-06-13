@@ -10,7 +10,7 @@
 
 use super::entities::EntityPosition;
 use super::points::Point;
-use super::shapes::{Rect, Shape};
+use super::shapes::{Line, Rect, Shape};
 use crate::source_position::SourcePosition;
 
 #[derive(Debug)]
@@ -88,6 +88,7 @@ impl GridDimensionsNode {
 #[derive(Debug)]
 pub enum ShapeNode {
     Rect(Rect),
+    Line(Line),
 }
 
 #[derive(Debug)]

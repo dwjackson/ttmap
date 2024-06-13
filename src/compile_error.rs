@@ -37,6 +37,7 @@ pub enum CompileErrorType {
     InvalidPosition,
     NoGridDimensions,
     OutOfBounds,
+    InvalidOrientation,
 }
 
 #[derive(Debug, Clone, Copy)]

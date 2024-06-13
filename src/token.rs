@@ -39,4 +39,12 @@ pub enum TokenType {
     Comma,
     Xor,
     Radius,
+    Line,
+    Along,
+    From,
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Length,
 }

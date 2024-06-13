@@ -48,7 +48,7 @@ grid [WIDTH], [HEIGHT]
 
 ## Rect
 
-To draw a rectangle on the map, the `rect` command is used
+To draw a rectangle on the map, the `rect` command is used:
 
 ```txt
 rect at [TOP_LEFT_X], [TOP_LEFT_Y] width [WIDTH] height [HEIGHT]
@@ -72,6 +72,21 @@ look like:
 |        |
 +-----+--+
 ```
+
+## Lines
+
+To draw lines along grid edges, the `line` command is used:
+
+```txt
+line along [SIDE] from [X],[Y] length [LENGTH]
+```
+
+The valid sides are:
+
+* `top`
+* `bottom`
+* `left`
+* `right`
 
 ## Entities
 

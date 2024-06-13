@@ -70,6 +70,14 @@ impl Lexer {
             ("within", TokenType::Within),
             ("xor", TokenType::Xor),
             ("radius", TokenType::Radius),
+            ("line", TokenType::Line),
+            ("along", TokenType::Along),
+            ("left", TokenType::Left),
+            ("right", TokenType::Right),
+            ("top", TokenType::Top),
+            ("bottom", TokenType::Bottom),
+            ("from", TokenType::From),
+            ("length", TokenType::Length),
         ];
         if let Some(index) = keywords
             .iter()
@@ -252,6 +260,23 @@ mod tests {
             TokenType::Number(5),
             TokenType::Radius,
             TokenType::Number(2),
+        ];
+        test_lex(input, &correct_token_types);
+    }
+
+    #[test]
+    fn test_lex_line() {
+        let input = "line along left from 1, 2 length 3";
+        let correct_token_types = vec![
+            TokenType::Line,
+            TokenType::Along,
+            TokenType::Left,
+            TokenType::From,
+            TokenType::Number(1),
+            TokenType::Comma,
+            TokenType::Number(2),
+            TokenType::Length,
+            TokenType::Number(3),
         ];
         test_lex(input, &correct_token_types);
     }

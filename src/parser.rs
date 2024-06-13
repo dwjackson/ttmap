@@ -15,7 +15,7 @@ use super::compile_error::{CompileError, CompileErrorType, SyntaxError};
 use super::entities::EntityPosition;
 use super::lexer::lex;
 use super::points::Point;
-use super::shapes::{Rect, Shape, ShapeBoolean};
+use super::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
 use super::token::{Token, TokenType};
 
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, CompileError> {
@@ -36,13 +36,21 @@ impl Parser {
         let grid_dimensions_node = self.parse_grid_dimensions()?;
         ast.add_node(grid_dimensions_node);
 
-        while self.next_matches_any(&[TokenType::Rect, TokenType::Entity, TokenType::Xor]) {
+        while self.next_matches_any(&[
+            TokenType::Rect,
+            TokenType::Entity,
+            TokenType::Xor,
+            TokenType::Line,
+        ]) {
             let boolean_op = self.parse_boolean_op();
             if self.next_matches(TokenType::Rect) {
                 let node = self.parse_rect(boolean_op)?;
                 ast.add_node(node);
             } else if self.next_matches(TokenType::Entity) {
                 let node = self.parse_entity()?;
+                ast.add_node(node);
+            } else if self.next_matches(TokenType::Line) {
+                let node = self.parse_line(boolean_op)?;
                 ast.add_node(node);
             } else {
                 panic!("Unexpected token type");
@@ -84,6 +92,37 @@ impl Parser {
         let node_type = AstNodeType::Shape(shape_node);
         let node = AstNode::new(node_type, position);
         Ok(node)
+    }
+
+    fn parse_line(&mut self, boolean_op: ShapeBoolean) -> Result<AstNode, CompileError> {
+        let position = self.accept(TokenType::Line)?.position;
+        self.accept(TokenType::Along)?;
+        let orientation = if self.next_matches(TokenType::Left) {
+            LineOrientation::Left
+        } else if self.next_matches(TokenType::Top) {
+            LineOrientation::Top
+        } else if self.next_matches(TokenType::Right) {
+            LineOrientation::Right
+        } else if self.next_matches(TokenType::Bottom) {
+            LineOrientation::Bottom
+        } else {
+            let pos = self.consume()?.position;
+            return Err(CompileError::new(
+                CompileErrorType::InvalidOrientation,
+                pos.line,
+                pos.col,
+            ));
+        };
+        self.consume()?; // Consume the orientation token
+        self.accept(TokenType::From)?;
+        let start = self.parse_point()?;
+        self.accept(TokenType::Length)?;
+        let length = self.accept_number()? as usize;
+        let line = Line::new(orientation, start, length, boolean_op);
+        let shape_node = ShapeNode::Line(line);
+        let node_type = AstNodeType::Shape(shape_node);
+        let ast_node = AstNode::new(node_type, position);
+        Ok(ast_node)
     }
 
     fn parse_point(&mut self) -> Result<Point, CompileError> {
@@ -309,6 +348,17 @@ mod tests {
         assert_eq!(entity.point.y(), 6);
     }
 
+    #[test]
+    fn test_parse_line() {
+        let input = "grid 10, 10\nline along left from 1,2 length 4";
+        let ast = parse(input).expect("Bad parse");
+        let line = line_at_index(&ast, 1);
+        assert!(matches!(line.orientation(), LineOrientation::Left));
+        assert_eq!(line.start().x(), 1);
+        assert_eq!(line.start().y(), 2);
+        assert_eq!(line.length(), 4);
+    }
+
     fn rect_at_index(ast: &AbstractSyntaxTree, index: usize) -> &Rect {
         let mut nodes = ast.nodes();
         for _ in 0..index {
@@ -318,8 +368,24 @@ mod tests {
         match node.node_type() {
             AstNodeType::Shape(shape_node) => match shape_node {
                 ShapeNode::Rect(rect) => rect,
+                _ => panic!("Not a rect node: {:?}", node.node_type()),
             },
             _ => panic!("Not a rect node: {:?}", node.node_type()),
+        }
+    }
+
+    fn line_at_index(ast: &AbstractSyntaxTree, index: usize) -> &Line {
+        let mut nodes = ast.nodes();
+        for _ in 0..index {
+            nodes.next();
+        }
+        let node = nodes.next().unwrap();
+        match node.node_type() {
+            AstNodeType::Shape(shape_node) => match shape_node {
+                ShapeNode::Line(line) => line,
+                _ => panic!("Not a line node: {:?}", node.node_type()),
+            },
+            _ => panic!("Not a line node: {:?}", node.node_type()),
         }
     }
 

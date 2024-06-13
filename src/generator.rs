@@ -15,7 +15,7 @@ use crate::compile_error::{CompileError, CompileErrorType};
 use crate::entities::Entity;
 use crate::map::Map;
 use crate::points::Point;
-use crate::shapes::{Rect, Shape, ShapeBoolean};
+use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
 use crate::source_position::SourcePosition;
 
 pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
@@ -33,6 +33,9 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
             AstNodeType::Shape(shape_node) => match shape_node {
                 ShapeNode::Rect(rect) => {
                     handle_rect(&mut map, rect, ast_node.position())?;
+                }
+                ShapeNode::Line(line) => {
+                    handle_line(&mut map, line, ast_node.position())?;
                 }
             },
             AstNodeType::Entity(entity_node) => {
@@ -66,28 +69,61 @@ fn handle_rect(map: &mut Map, rect: &Rect, position: SourcePosition) -> Result<(
     for i in 0..rect.width() {
         let start = point(x + i, y);
         let end = point(x + i + 1, y);
-        handle_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, position)?;
     }
 
     // Connect the "left side" of the rectangle
     for i in 0..rect.height() {
         let start = point(x, y + i);
         let end = point(x, y + i + 1);
-        handle_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, position)?;
     }
 
     // Connect the "bottom side" of the rectangle
     for i in 0..rect.width() {
         let start = point(x + i, y + rect.height());
         let end = point(x + i + 1, y + rect.height());
-        handle_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, position)?;
     }
 
     // Connect the "right side" of the rectangle
     for i in 0..rect.height() {
         let start = point(x + rect.width(), y + i);
         let end = point(x + rect.width(), y + i + 1);
-        handle_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, position)?;
+    }
+
+    Ok(())
+}
+
+fn handle_line(map: &mut Map, line: &Line, position: SourcePosition) -> Result<(), CompileError> {
+    let start = match line.orientation() {
+        LineOrientation::Left | LineOrientation::Top => line.start(),
+        LineOrientation::Right => line.start().right(),
+        LineOrientation::Bottom => line.start().down(),
+    };
+
+    let mut p = start;
+    for _ in 0..line.length() {
+        let p2 = match line.orientation() {
+            LineOrientation::Left | LineOrientation::Right => p.down(),
+            LineOrientation::Top | LineOrientation::Bottom => p.right(),
+        };
+
+        if !(map.point_exists(p) && map.point_exists(p2)) {
+            return Err(CompileError::new(
+                CompileErrorType::OutOfBounds,
+                position.line,
+                position.col,
+            ));
+        }
+
+        if matches!(line.boolean_op(), ShapeBoolean::Xor) && map.are_connected(p, p2) {
+            map.disconnect(p, p2);
+        } else {
+            map.connect(p, p2);
+        }
+        p = p2;
     }
 
     Ok(())
@@ -127,7 +163,7 @@ fn out_of_bounds(position: SourcePosition) -> CompileError {
     CompileError::new(CompileErrorType::OutOfBounds, position.line, position.col)
 }
 
-fn handle_points(
+fn handle_rect_points(
     map: &mut Map,
     rect: &Rect,
     start: Point,
@@ -166,7 +202,7 @@ mod tests {
     use super::*;
     use crate::ast::{AstNode, EntityNode};
     use crate::entities::EntityPosition;
-    use crate::shapes::{Shape, ShapeBoolean};
+    use crate::shapes::{LineOrientation, Shape, ShapeBoolean};
 
     #[test]
     fn test_generate_empty_map() {
@@ -273,6 +309,37 @@ mod tests {
                 assert!(matches!(e.error_type, CompileErrorType::OutOfBounds));
             }
         }
+    }
+
+    #[test]
+    fn test_vertical_line() {
+        let mut ast = AbstractSyntaxTree::new();
+        ast.add_node(dimensions(10, 10));
+        let line = Line::new(LineOrientation::Left, Point::new(1, 2), 4, ShapeBoolean::Or);
+        let shape_node = ShapeNode::Line(line);
+        let position = SourcePosition { line: 1, col: 1 };
+        let ast_node = AstNode::new(AstNodeType::Shape(shape_node), position);
+        ast.add_node(ast_node);
+        let map = generate_map(&ast).expect("Bad generate");
+        assert!(map.are_connected(Point::new(1, 3), Point::new(1, 4)));
+    }
+
+    #[test]
+    fn test_horizontal_line() {
+        let mut ast = AbstractSyntaxTree::new();
+        ast.add_node(dimensions(10, 10));
+        let line = Line::new(
+            LineOrientation::Bottom,
+            Point::new(2, 2),
+            3,
+            ShapeBoolean::Or,
+        );
+        let shape_node = ShapeNode::Line(line);
+        let position = SourcePosition { line: 1, col: 1 };
+        let ast_node = AstNode::new(AstNodeType::Shape(shape_node), position);
+        ast.add_node(ast_node);
+        let map = generate_map(&ast).expect("Bad generate");
+        assert!(map.are_connected(Point::new(3, 3), Point::new(4, 3)));
     }
 
     fn dimensions(width: u32, height: u32) -> AstNode {
