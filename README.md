@@ -46,9 +46,9 @@ The `grid` declaration defines the dimensions of the grid, in cells.
 grid [WIDTH], [HEIGHT]
 ```
 
-## Rect
+## Rectangles
 
-To draw a rectangle on the map, the `rect` command is used:
+To draw a rectangle, along grid lines, on the map, the `rect` command is used:
 
 ```txt
 rect at [TOP_LEFT_X], [TOP_LEFT_Y] width [WIDTH] height [HEIGHT]
