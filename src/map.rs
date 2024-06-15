@@ -15,6 +15,8 @@ use super::shapes::Shape;
 use super::svg::{Colour, SvgBuilder};
 use std::collections::HashMap;
 
+const NEIGHBOURHOOD_SIZE: usize = 2;
+
 #[derive(Debug)]
 pub struct Map {
     width: usize,
@@ -112,14 +114,10 @@ impl SvgMapDrawing {
     fn draw(mut self, map: &Map) -> String {
         for x in 0..(map.width() + 1) {
             for y in 0..(map.height() + 1) {
-                let point = Point::new(x, y);
-                let right = Point::new(x + 1, y);
-                let down = Point::new(x, y + 1);
-                if map.contains_point(right) {
-                    self = self.line(map, point, right);
-                }
-                if map.contains_point(down) {
-                    self = self.line(map, point, down);
+                let p = Point::new(x, y);
+                let n = neighbourhood(p);
+                for np in n.into_iter().filter(|&np| map.contains_point(np)) {
+                    self = self.line(map, p, np);
                 }
             }
         }
@@ -162,6 +160,10 @@ impl SvgMapDrawing {
         );
         self
     }
+}
+
+fn neighbourhood(p: Point) -> [Point; NEIGHBOURHOOD_SIZE] {
+    [p.right(), p.down()]
 }
 
 #[cfg(test)]
