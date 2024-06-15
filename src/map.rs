@@ -112,13 +112,10 @@ impl SvgMapDrawing {
     }
 
     fn draw(mut self, map: &Map) -> String {
-        for x in 0..(map.width() + 1) {
-            for y in 0..(map.height() + 1) {
-                let p = Point::new(x, y);
-                let n = neighbourhood(p);
-                for np in n.into_iter().filter(|&np| map.contains_point(np)) {
-                    self = self.line(map, p, np);
-                }
+        for p in grid_points(map.width(), map.height()) {
+            let n = neighbourhood(p);
+            for np in n.into_iter().filter(|&np| map.contains_point(np)) {
+                self = self.line(map, p, np);
             }
         }
         for entity in map.entities().iter() {
@@ -159,6 +156,40 @@ impl SvgMapDrawing {
             colour,
         );
         self
+    }
+}
+
+fn grid_points(width: usize, height: usize) -> PointsIter {
+    PointsIter {
+        x: 0,
+        y: 0,
+        x_max: width + 1,
+        y_max: height + 1,
+    }
+}
+
+struct PointsIter {
+    x: usize,
+    y: usize,
+    x_max: usize,
+    y_max: usize,
+}
+
+impl Iterator for PointsIter {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.x >= self.x_max || self.y >= self.y_max {
+            return None;
+        }
+        let point = Point::new(self.x, self.y);
+        if self.x + 1 >= self.x_max {
+            self.x = 0;
+            self.y += 1;
+        } else {
+            self.x += 1;
+        }
+        Some(point)
     }
 }
 
