@@ -21,7 +21,7 @@ const NEIGHBOURHOOD_SIZE: usize = 2;
 pub struct Map {
     width: usize,
     height: usize,
-    graph: Graph<usize>,
+    graph: Graph<()>,
     point_nodes: HashMap<usize, NodeHandle>,
     entities: Vec<Entity>,
 }
@@ -30,8 +30,8 @@ impl Map {
     pub fn new(width: usize, height: usize) -> Map {
         let mut graph = Graph::new();
         let mut point_nodes = HashMap::new();
-        for i in 0..((width + 1) * (height + 1)) {
-            let h = graph.add_node(i);
+        for (i, _) in grid_points(width, height).enumerate() {
+            let h = graph.add_node(());
             point_nodes.insert(i, h);
         }
         Map {
