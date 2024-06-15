@@ -15,7 +15,6 @@ use crate::shapes::Shape;
 use crate::svg::{Colour, SvgBuilder};
 use std::collections::HashMap;
 
-const NEIGHBOURHOOD_SIZE: usize = 2;
 const LIGHT_GRAY: Colour = Colour::Rgb(200, 200, 200);
 
 #[derive(Debug)]
@@ -125,16 +124,15 @@ impl SvgMapDrawing {
         }
 
         // Draw the connected grid points
-        let connected_points = grid_points(map.width(), map.height())
-            .flat_map(|p| {
-                let n = neighbourhood(p);
-                n.into_iter()
-                    .filter(|np| map.contains_point(*np))
-                    .map(move |np| (p, np))
-            })
-            .filter(|(p, np)| map.are_connected(*p, *np));
-        for (p1, p2) in connected_points {
-            self = self.line(map, p1, p2);
+        let cycles = map.graph.find_cycles();
+        for cycle in cycles.iter() {
+            let points: Vec<Point> = cycle
+                .iter()
+                .map(|h| map.graph.data(*h))
+                .filter(|p| map.contains_point(**p))
+                .map(|p| Point::new(p.x() * self.dim, p.y() * self.dim))
+                .collect();
+            self = self.polygon(points);
         }
 
         // Draw entities
@@ -188,6 +186,11 @@ impl SvgMapDrawing {
         );
         self
     }
+
+    fn polygon(mut self, points: Vec<Point>) -> Self {
+        self.builder = self.builder.polygon(points, Colour::Black);
+        self
+    }
 }
 
 fn grid_points(width: usize, height: usize) -> PointsIter {
@@ -222,10 +225,6 @@ impl Iterator for PointsIter {
         }
         Some(point)
     }
-}
-
-fn neighbourhood(p: Point) -> [Point; NEIGHBOURHOOD_SIZE] {
-    [p.right(), p.down()]
 }
 
 #[cfg(test)]

@@ -56,10 +56,12 @@ impl<T> Graph<T> {
 
     pub fn add_edge(&mut self, node_handle_1: NodeHandle, node_handle_2: NodeHandle) {
         self.nodes[node_handle_1.0].add_edge(node_handle_2);
+        self.nodes[node_handle_2.0].add_edge(node_handle_1);
     }
 
     pub fn remove_edge(&mut self, node_handle_1: NodeHandle, node_handle_2: NodeHandle) {
         self.nodes[node_handle_1.0].remove_edge(node_handle_2);
+        self.nodes[node_handle_2.0].remove_edge(node_handle_1);
     }
 
     pub fn is_edge_between(&self, handle1: NodeHandle, handle2: NodeHandle) -> bool {
@@ -75,42 +77,71 @@ impl<T> Graph<T> {
         &self.nodes[handle.0].data
     }
 
-    pub fn connected_components(&self) -> Vec<Vec<NodeHandle>> {
-        let mut cc = Vec::new();
+    pub fn find_cycles(&self) -> Vec<Vec<NodeHandle>> {
+        let mut cycles = Vec::new();
         let mut visited = vec![false; self.nodes.len()];
         for i in 0..self.nodes.len() {
-            if visited[i] {
+            let h = NodeHandle(i);
+            if visited[h.0] {
                 // Skip visited nodes
                 continue;
             }
-            let h = NodeHandle(i);
-            let component = self.bfs(h);
-            for c in component.iter() {
-                visited[c.0] = true;
+
+            // Find cycles containing this node
+            let mut stack = Vec::new();
+            let mut seen = HashSet::new();
+            self.find_cycles_rec(h, &mut seen, &mut stack, &mut cycles);
+
+            // Mark all nodes in cycles as visited
+            for cycle in cycles.iter() {
+                for ch in cycle.iter() {
+                    visited[ch.0] = true;
+                }
             }
-            cc.push(component);
-            visited[i] = true;
         }
-        cc
+        cycles
     }
 
-    fn bfs(&self, start: NodeHandle) -> Vec<NodeHandle> {
-        let mut nodes = vec![start];
-        let mut stack = vec![start];
-        let mut seen = HashSet::new();
-        while let Some(h) = stack.pop() {
-            if seen.contains(&h) {
-                // Deal with cycles
+    fn find_cycles_rec(
+        &self,
+        handle: NodeHandle,
+        seen: &mut HashSet<NodeHandle>,
+        stack: &mut Vec<NodeHandle>,
+        cycles: &mut Vec<Vec<NodeHandle>>,
+    ) -> bool {
+        if stack.iter().any(|h| *h == handle) {
+            // Cycle found
+            let mut cycle = Vec::new();
+            for h in stack.iter().rev() {
+                cycle.push(*h);
+                if *h == handle {
+                    break;
+                }
+            }
+            cycles.push(cycle);
+            return true;
+        }
+
+        let is_back_ref = !stack.is_empty();
+        let back_ref = if is_back_ref {
+            Some(*stack.last().unwrap())
+        } else {
+            None
+        };
+
+        stack.push(handle);
+        let mut cycle_found = false;
+        for e in self.nodes[handle.0].edges.iter() {
+            if is_back_ref && back_ref.unwrap() == *e || seen.contains(&handle) {
                 continue;
             }
-            seen.insert(h);
-            let n = &self.nodes[h.0];
-            for c in n.edges.iter() {
-                nodes.push(*c);
-                stack.push(*c);
+            if self.find_cycles_rec(*e, seen, stack, cycles) {
+                cycle_found = true;
             }
         }
-        nodes
+        stack.pop();
+        seen.insert(handle);
+        cycle_found
     }
 }
 
@@ -142,18 +173,78 @@ mod tests {
     }
 
     #[test]
-    fn test_connected_components() {
+    fn test_find_simple_cycle() {
         let mut g: Graph<i32> = Graph::new();
-        let n1 = g.add_node(111);
-        let n2 = g.add_node(222);
-        let n3 = g.add_node(333);
-        let n4 = g.add_node(444);
+        let n1 = g.add_node(1);
+        let n2 = g.add_node(2);
+        let n3 = g.add_node(3);
+        let n4 = g.add_node(4);
         g.add_edge(n1, n2);
+        g.add_edge(n2, n3);
         g.add_edge(n3, n4);
-        let connected_components = g.connected_components();
-        assert_eq!(connected_components.len(), 2);
-        for cc in connected_components.iter() {
-            assert_eq!(cc.len(), 2);
+        g.add_edge(n4, n1);
+        let cycles = g.find_cycles();
+        assert_eq!(cycles.len(), 1);
+    }
+
+    /*
+     * This has 3 cycles, one of which contains the others:
+     * 0---1---2
+     * |       |
+     * 3---4---5
+     *     |   |
+     *     6---7
+     */
+    #[test]
+    fn test_find_cyles() {
+        let mut g: Graph<i32> = Graph::new();
+        let n0 = g.add_node(0);
+        let n1 = g.add_node(1);
+        let n2 = g.add_node(2);
+        let n3 = g.add_node(3);
+        let n4 = g.add_node(4);
+        let n5 = g.add_node(5);
+        let n6 = g.add_node(6);
+        let n7 = g.add_node(7);
+        g.add_edge(n0, n1);
+        g.add_edge(n0, n3);
+        g.add_edge(n1, n2);
+        g.add_edge(n2, n5);
+        g.add_edge(n5, n4);
+        g.add_edge(n5, n7);
+        g.add_edge(n4, n3);
+        g.add_edge(n6, n4);
+        g.add_edge(n7, n6);
+        let cycles = g.find_cycles();
+        assert_eq!(cycles.len(), 2);
+
+        match cycles.iter().find(|c| c.len() == 6) {
+            Some(c) => {
+                let node_set: HashSet<NodeHandle> = c.iter().map(|x| *x).collect();
+                let correct_nodes = [0, 1, 2, 3, 4, 5];
+                for x in correct_nodes.into_iter() {
+                    assert!(node_set.contains(&NodeHandle(x)));
+                }
+            }
+            None => panic!("Large rectangle wasn't found"),
         }
+
+        match cycles.iter().find(|c| c.len() == 4) {
+            Some(c) => {
+                let node_set: HashSet<NodeHandle> = c.iter().map(|x| *x).collect();
+                let correct_nodes = [5, 4, 6, 7];
+                for x in correct_nodes.into_iter() {
+                    assert!(node_set.contains(&NodeHandle(x)));
+                }
+            }
+            None => panic!("Small square wasn't found"),
+        }
+    }
+
+    #[test]
+    fn test_node_handle_equals() {
+        let h1 = NodeHandle(2);
+        let h2 = NodeHandle(2);
+        assert_eq!(h1, h2);
     }
 }
