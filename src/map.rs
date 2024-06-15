@@ -69,6 +69,9 @@ impl Map {
     }
 
     pub fn point_exists(&self, p: Point) -> bool {
+        if p.x() >= self.width + 1 || p.y() >= self.height + 1 {
+            return false;
+        }
         self.find_node(p).is_some()
     }
 
@@ -235,6 +238,12 @@ mod tests {
         let map = Map::new(5, 5);
         let valid_point = point(2, 2);
         assert!(map.contains_point(valid_point));
+    }
+
+    #[test]
+    fn test_point_exists() {
+        let map = Map::new(2, 2);
+        assert!(!map.point_exists(Point::new(3, 1)));
     }
 
     fn point(x: usize, y: usize) -> Point {
