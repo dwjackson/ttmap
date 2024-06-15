@@ -69,7 +69,7 @@ impl Map {
     }
 
     pub fn point_exists(&self, p: Point) -> bool {
-        if p.x() >= self.width + 1 || p.y() >= self.height + 1 {
+        if p.x() > self.width || p.y() > self.height {
             return false;
         }
         self.find_node(p).is_some()
