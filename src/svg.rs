@@ -8,6 +8,8 @@
  * Copyright (c) 2024 David Jackson
  */
 
+use crate::points::Point;
+
 const SVG_XMLNS: &str = "http://www.w3.org/2000/svg";
 
 pub struct SvgBuilder {
@@ -22,6 +24,8 @@ trait ToSvg {
 
 #[derive(Debug)]
 struct SvgRect {
+    x: usize,
+    y: usize,
     width: usize,
     height: usize,
     stroke: Colour,
@@ -30,7 +34,9 @@ struct SvgRect {
 impl ToSvg for SvgRect {
     fn to_svg(&self) -> String {
         format!(
-            "<rect width=\"{}\" height=\"{}\" stroke=\"{}\"/>",
+            "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" stroke=\"{}\" fill=\"none\"/>",
+            self.x,
+            self.y,
             self.width,
             self.height,
             self.stroke.to_svg()
@@ -80,6 +86,28 @@ impl ToSvg for SvgCircle {
     }
 }
 
+#[derive(Debug)]
+struct SvgPolygon {
+    points: Vec<Point>,
+    stroke: Colour,
+}
+
+impl ToSvg for SvgPolygon {
+    fn to_svg(&self) -> String {
+        let points_strings: Vec<String> = self
+            .points
+            .iter()
+            .map(|p| format!("{},{}", p.x(), p.y()))
+            .collect();
+        let points_str = points_strings.join(" ");
+        format!(
+            "<polygon points=\"{}\" stroke=\"{}\" fill=\"none\"/>",
+            points_str,
+            self.stroke.to_svg()
+        )
+    }
+}
+
 impl SvgBuilder {
     pub fn new(width: usize, height: usize) -> SvgBuilder {
         SvgBuilder {
@@ -89,8 +117,17 @@ impl SvgBuilder {
         }
     }
 
-    pub fn rect(mut self, width: usize, height: usize, stroke: Colour) -> SvgBuilder {
+    pub fn rect(
+        mut self,
+        x: usize,
+        y: usize,
+        width: usize,
+        height: usize,
+        stroke: Colour,
+    ) -> SvgBuilder {
         let rect = SvgRect {
+            x,
+            y,
             width,
             height,
             stroke,
@@ -126,6 +163,12 @@ impl SvgBuilder {
             stroke,
         };
         self.elements.push(Box::new(circle));
+        self
+    }
+
+    pub fn polygon(mut self, points: Vec<Point>, stroke: Colour) -> SvgBuilder {
+        let polygon = SvgPolygon { points, stroke };
+        self.elements.push(Box::new(polygon));
         self
     }
 
@@ -178,10 +221,10 @@ mod tests {
 
     #[test]
     fn test_svg_with_rectangle() {
-        let builder = SvgBuilder::new(WIDTH, HEIGHT).rect(100, 50, Colour::Black);
+        let builder = SvgBuilder::new(WIDTH, HEIGHT).rect(10, 20, 100, 50, Colour::Black);
         let svg = builder.build();
         assert_eq!(
-            "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100\" height=\"50\" stroke=\"black\"/></svg>",
+            "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"20\" width=\"100\" height=\"50\" stroke=\"black\" fill=\"none\"/></svg>",
             svg
         );
     }
@@ -203,5 +246,17 @@ mod tests {
         let svg = builder.build();
         assert_eq!(svg,
             "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"100\" cy=\"100\" r=\"20\" stroke=\"black\" fill=\"none\"/></svg>");
+    }
+
+    #[test]
+    fn test_polygon() {
+        let points = vec![
+            Point::new(100, 100),
+            Point::new(120, 100),
+            Point::new(120, 120),
+        ];
+        let builder = SvgBuilder::new(WIDTH, HEIGHT).polygon(points, Colour::Black);
+        let svg = builder.build();
+        assert_eq!(svg,  "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><polygon points=\"100,100 120,100 120,120\" stroke=\"black\" fill=\"none\"/></svg>");
     }
 }

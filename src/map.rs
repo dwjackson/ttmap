@@ -8,20 +8,21 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::entities::{Entity, EntityPosition};
-use super::graph::{Graph, NodeHandle};
-use super::points::Point;
-use super::shapes::Shape;
-use super::svg::{Colour, SvgBuilder};
+use crate::entities::{Entity, EntityPosition};
+use crate::graph::{Graph, NodeHandle};
+use crate::points::Point;
+use crate::shapes::Shape;
+use crate::svg::{Colour, SvgBuilder};
 use std::collections::HashMap;
 
 const NEIGHBOURHOOD_SIZE: usize = 2;
+const LIGHT_GRAY: Colour = Colour::Rgb(200, 200, 200);
 
 #[derive(Debug)]
 pub struct Map {
     width: usize,
     height: usize,
-    graph: Graph<()>,
+    graph: Graph<Point>,
     point_nodes: HashMap<usize, NodeHandle>,
     entities: Vec<Entity>,
 }
@@ -30,8 +31,8 @@ impl Map {
     pub fn new(width: usize, height: usize) -> Map {
         let mut graph = Graph::new();
         let mut point_nodes = HashMap::new();
-        for (i, _) in grid_points(width, height).enumerate() {
-            let h = graph.add_node(());
+        for (i, p) in grid_points(width, height).enumerate() {
+            let h = graph.add_node(p);
             point_nodes.insert(i, h);
         }
         Map {
@@ -115,12 +116,28 @@ impl SvgMapDrawing {
     }
 
     fn draw(mut self, map: &Map) -> String {
-        for p in grid_points(map.width(), map.height()) {
-            let n = neighbourhood(p);
-            for np in n.into_iter().filter(|&np| map.contains_point(np)) {
-                self = self.line(map, p, np);
+        // Draw the grid
+        for i in 0..map.width() {
+            for j in 0..map.height() {
+                let p = Point::new(i, j);
+                self = self.grid_cell(p);
             }
         }
+
+        // Draw the connected grid points
+        let connected_points = grid_points(map.width(), map.height())
+            .flat_map(|p| {
+                let n = neighbourhood(p);
+                n.into_iter()
+                    .filter(|np| map.contains_point(*np))
+                    .map(move |np| (p, np))
+            })
+            .filter(|(p, np)| map.are_connected(*p, *np));
+        for (p1, p2) in connected_points {
+            self = self.line(map, p1, p2);
+        }
+
+        // Draw entities
         for entity in map.entities().iter() {
             match entity.shape() {
                 Shape::Circle(radius) => {
@@ -149,7 +166,7 @@ impl SvgMapDrawing {
         let colour = if map.are_connected(p1, p2) {
             Colour::Black
         } else {
-            Colour::Rgb(200, 200, 200)
+            LIGHT_GRAY
         };
         self.builder = self.builder.line(
             p1.x() * self.dim,
@@ -157,6 +174,17 @@ impl SvgMapDrawing {
             p2.x() * self.dim,
             p2.y() * self.dim,
             colour,
+        );
+        self
+    }
+
+    fn grid_cell(mut self, p: Point) -> Self {
+        self.builder = self.builder.rect(
+            p.x() * self.dim,
+            p.y() * self.dim,
+            self.dim,
+            self.dim,
+            LIGHT_GRAY,
         );
         self
     }
