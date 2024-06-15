@@ -24,14 +24,22 @@ pub fn compile_svg(input: &str, dim: usize) -> String {
 }
 
 fn format_compile_error(err: CompileError) -> String {
-    match err.error_type {
+    let message = match err.error_type {
         CompileErrorType::SyntaxError(e) => {
-            format!(
-                "Syntax Error: Expected {:?}, got {:?}",
-                e.expected(),
-                e.actual()
-            )
+            &format!("Expected {:?}, got {:?}", e.expected(), e.actual())
         }
-        _ => format!("{:?}", err),
-    }
+        CompileErrorType::InvalidCharacter => "Invalid character",
+        CompileErrorType::UnrecognizedKeyword => "Unrecognized keyword",
+        CompileErrorType::InvalidNumber => "Invalid number",
+        CompileErrorType::UnexpectedEndOfFile => "Unexpected end-of-file",
+        CompileErrorType::InvalidShape => "Invalid shape",
+        CompileErrorType::InvalidPosition => "Invalid position",
+        CompileErrorType::NoGridDimensions => "No grid dimensions",
+        CompileErrorType::OutOfBounds => "Out-of-bounds point",
+        CompileErrorType::InvalidOrientation => "Invalid orientation",
+    };
+    format!(
+        "[{},{}] ERROR: {}",
+        err.position.line, err.position.col, message
+    )
 }
