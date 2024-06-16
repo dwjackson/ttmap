@@ -13,7 +13,7 @@ use crate::graph::{Graph, NodeHandle};
 use crate::points::Point;
 use crate::shapes::Shape;
 use crate::svg::{Colour, SvgBuilder};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const LIGHT_GRAY: Colour = Colour::Rgb(200, 200, 200);
 
@@ -123,16 +123,50 @@ impl SvgMapDrawing {
             }
         }
 
-        // Draw the connected grid points
+        // Draw grid points that connect into polygons
         let cycles = map.graph.find_cycles();
         for cycle in cycles.iter() {
             let points: Vec<Point> = cycle
                 .iter()
                 .map(|h| map.graph.data(*h))
                 .filter(|p| map.contains_point(**p))
-                .map(|p| Point::new(p.x() * self.dim, p.y() * self.dim))
+                .map(|p| p.scale(self.dim))
                 .collect();
             self = self.polygon(points);
+        }
+
+        // Draw grid points that connect only into lines, rather than polygons
+        let polygon_points: HashSet<Point> = cycles
+            .iter()
+            .flatten()
+            .map(|h| *map.graph.data(*h))
+            .collect();
+        let connected_components = map.graph.connected_components();
+        for cc in connected_components.iter().filter(|c| c.len() > 1) {
+            let mut points: Vec<Point> = cc
+                .iter()
+                .map(|h| *map.graph.data(*h))
+                .filter(|p| !polygon_points.contains(p))
+                .collect();
+            if points.is_empty() {
+                continue;
+            }
+            let origin = Point::origin();
+            let start = *points
+                .iter()
+                .max_by(|a, b| {
+                    let da = a.taxicab_distance(&origin);
+                    let db = b.taxicab_distance(&origin);
+                    da.cmp(&db)
+                })
+                .unwrap();
+            points.sort_by(|a, b| {
+                let da = a.taxicab_distance(&start);
+                let db = b.taxicab_distance(&start);
+                da.cmp(&db)
+            });
+            let points = scale_points(&points, self.dim);
+            self = self.path(points);
         }
 
         // Draw entities
@@ -141,15 +175,14 @@ impl SvgMapDrawing {
                 Shape::Circle(radius) => {
                     let (x, y, r) = match entity.position() {
                         EntityPosition::Within => {
-                            let x = entity.point().x() * self.dim + self.dim / 2;
-                            let y = entity.point().y() * self.dim + self.dim / 2;
-                            let r = self.dim / 2 - 1;
-                            (x, y, r)
+                            let m = self.dim / 2;
+                            let p = entity.point().scale(self.dim) + Point::new(m, m);
+                            let r = m - 1;
+                            (p.x(), p.y(), r)
                         }
                         EntityPosition::At => {
-                            let x = entity.point().x() * self.dim;
-                            let y = entity.point().y() * self.dim;
-                            (x, y, radius * self.dim)
+                            let p = entity.point().scale(self.dim);
+                            (p.x(), p.y(), radius * self.dim)
                         }
                     };
 
@@ -160,35 +193,20 @@ impl SvgMapDrawing {
         self.builder.build()
     }
 
-    fn line(mut self, map: &Map, p1: Point, p2: Point) -> Self {
-        let colour = if map.are_connected(p1, p2) {
-            Colour::Black
-        } else {
-            LIGHT_GRAY
-        };
-        self.builder = self.builder.line(
-            p1.x() * self.dim,
-            p1.y() * self.dim,
-            p2.x() * self.dim,
-            p2.y() * self.dim,
-            colour,
-        );
-        self
-    }
-
     fn grid_cell(mut self, p: Point) -> Self {
-        self.builder = self.builder.rect(
-            p.x() * self.dim,
-            p.y() * self.dim,
-            self.dim,
-            self.dim,
-            LIGHT_GRAY,
-        );
+        self.builder = self
+            .builder
+            .rect(p.scale(self.dim), self.dim, self.dim, LIGHT_GRAY);
         self
     }
 
     fn polygon(mut self, points: Vec<Point>) -> Self {
         self.builder = self.builder.polygon(points, Colour::Black);
+        self
+    }
+
+    fn path(mut self, points: Vec<Point>) -> Self {
+        self.builder = self.builder.path(points, Colour::Black);
         self
     }
 }
@@ -200,6 +218,10 @@ fn grid_points(width: usize, height: usize) -> PointsIter {
         x_max: width + 1,
         y_max: height + 1,
     }
+}
+
+fn scale_points(points: &[Point], scale_factor: usize) -> Vec<Point> {
+    points.iter().map(|p| p.scale(scale_factor)).collect()
 }
 
 struct PointsIter {

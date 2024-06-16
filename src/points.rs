@@ -8,7 +8,7 @@
  * Copyright (c) 2024 David Jackson
  */
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Point {
     x: usize,
     y: usize,
@@ -17,6 +17,10 @@ pub struct Point {
 impl Point {
     pub fn new(x: usize, y: usize) -> Point {
         Point { x, y }
+    }
+
+    pub fn origin() -> Point {
+        Point { x: 0, y: 0 }
     }
 
     pub fn x(&self) -> usize {
@@ -41,6 +45,35 @@ impl Point {
 
     pub fn left(&self) -> Point {
         Point::new(self.x - 1, self.y)
+    }
+
+    pub fn scale(&self, scale_factor: usize) -> Point {
+        Point::new(self.x * scale_factor, self.y * scale_factor)
+    }
+
+    pub fn taxicab_distance(&self, p: &Point) -> usize {
+        let (x1, x2) = if self.x > p.x {
+            (self.x, p.x)
+        } else {
+            (p.x, self.x)
+        };
+        let (y1, y2) = if self.y > p.y {
+            (self.y, p.y)
+        } else {
+            (p.y, self.y)
+        };
+        (x1 - x2) + (y1 - y2)
+    }
+}
+
+impl std::ops::Add for Point {
+    type Output = Point;
+
+    fn add(self, other: Point) -> Point {
+        Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
     }
 }
 
@@ -74,5 +107,53 @@ mod tests {
         let p = Point::new(2, 3);
         let p2 = p.left();
         assert_eq!(p2, Point::new(1, 3));
+    }
+
+    #[test]
+    fn test_scale() {
+        let p = Point::new(2, 3);
+        let s = p.scale(10);
+        assert_eq!(s.x(), 20);
+        assert_eq!(s.y(), 30);
+    }
+
+    #[test]
+    fn test_add() {
+        let p1 = Point::new(2, 3);
+        let p2 = Point::new(1, 2);
+        let p3 = p1 + p2;
+        assert_eq!(p3.x(), 3);
+        assert_eq!(p3.y(), 5);
+    }
+
+    #[test]
+    fn test_taxicab_distance_between_point_and_itself_is_zero() {
+        let p = Point::new(0, 0);
+        let d = p.taxicab_distance(&p);
+        assert_eq!(d, 0);
+    }
+
+    #[test]
+    fn test_taxicab_distance_between_horizontally_distanced_points() {
+        let p1 = Point::new(1, 1);
+        let p2 = Point::new(4, 1);
+        let d = p1.taxicab_distance(&p2);
+        assert_eq!(d, 3);
+    }
+
+    #[test]
+    fn test_taxicab_distance_between_vertically_distanced_points() {
+        let p1 = Point::new(1, 1);
+        let p2 = Point::new(1, 4);
+        let d = p1.taxicab_distance(&p2);
+        assert_eq!(d, 3);
+    }
+
+    #[test]
+    fn test_taxicab_distance() {
+        let p1 = Point::new(1, 1);
+        let p2 = Point::new(4, 4);
+        let d = p1.taxicab_distance(&p2);
+        assert_eq!(d, 6);
     }
 }

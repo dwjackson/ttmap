@@ -9,9 +9,8 @@
  */
 
 use std::env;
-use std::fs::File;
-use std::io::prelude::*;
 use ttmap::compiler::compile_svg;
+use ttmap::files::read_file;
 
 const DEFAULT_DIMENSION: usize = 10;
 
@@ -31,16 +30,7 @@ fn main() {
         DEFAULT_DIMENSION
     };
 
-    let mut file = match File::open(file_name) {
-        Err(why) => panic!("Couldn't open {}: {}", file_name, why),
-        Ok(f) => f,
-    };
-
-    let mut input = String::new();
-    if let Err(why) = file.read_to_string(&mut input) {
-        panic!("Couldn't read {}: {}", file_name, why);
-    }
-
+    let input = read_file(file_name);
     let s = compile_svg(&input, dim);
     println!("{}", s);
 }

@@ -24,8 +24,7 @@ trait ToSvg {
 
 #[derive(Debug)]
 struct SvgRect {
-    x: usize,
-    y: usize,
+    point: Point,
     width: usize,
     height: usize,
     stroke: Colour,
@@ -35,8 +34,8 @@ impl ToSvg for SvgRect {
     fn to_svg(&self) -> String {
         format!(
             "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" stroke=\"{}\" fill=\"none\"/>",
-            self.x,
-            self.y,
+            self.point.x(),
+            self.point.y(),
             self.width,
             self.height,
             self.stroke.to_svg()
@@ -45,22 +44,29 @@ impl ToSvg for SvgRect {
 }
 
 #[derive(Debug)]
-struct SvgLine {
-    start_x: usize,
-    start_y: usize,
-    end_x: usize,
-    end_y: usize,
+struct SvgPath {
+    points: Vec<Point>,
     stroke: Colour,
 }
 
-impl ToSvg for SvgLine {
+impl ToSvg for SvgPath {
     fn to_svg(&self) -> String {
+        let points_strs: Vec<String> = self
+            .points
+            .iter()
+            .map(|p| format!("{} {}", p.x(), p.y()))
+            .collect();
+        let start = format!("M{}", points_strs[0]);
+        let lines_strs: Vec<String> = points_strs
+            .iter()
+            .skip(1)
+            .map(|s| format!("L{}", s))
+            .collect();
+        let lines_str = lines_strs.join(" ");
         format!(
-            "<path d=\"M{} {} L{} {}\" stroke=\"{}\"/>",
-            self.start_x,
-            self.start_y,
-            self.end_x,
-            self.end_y,
+            "<path d=\"{} {}\" stroke=\"{}\" fill=\"none\"/>",
+            start,
+            lines_str,
             self.stroke.to_svg()
         )
     }
@@ -117,17 +123,9 @@ impl SvgBuilder {
         }
     }
 
-    pub fn rect(
-        mut self,
-        x: usize,
-        y: usize,
-        width: usize,
-        height: usize,
-        stroke: Colour,
-    ) -> SvgBuilder {
+    pub fn rect(mut self, point: Point, width: usize, height: usize, stroke: Colour) -> SvgBuilder {
         let rect = SvgRect {
-            x,
-            y,
+            point,
             width,
             height,
             stroke,
@@ -136,22 +134,9 @@ impl SvgBuilder {
         self
     }
 
-    pub fn line(
-        mut self,
-        start_x: usize,
-        start_y: usize,
-        end_x: usize,
-        end_y: usize,
-        stroke: Colour,
-    ) -> SvgBuilder {
-        let line = SvgLine {
-            start_x,
-            start_y,
-            end_x,
-            end_y,
-            stroke,
-        };
-        self.elements.push(Box::new(line));
+    pub fn path(mut self, points: Vec<Point>, stroke: Colour) -> SvgBuilder {
+        let path = SvgPath { points, stroke };
+        self.elements.push(Box::new(path));
         self
     }
 
@@ -221,7 +206,8 @@ mod tests {
 
     #[test]
     fn test_svg_with_rectangle() {
-        let builder = SvgBuilder::new(WIDTH, HEIGHT).rect(10, 20, 100, 50, Colour::Black);
+        let p = Point::new(10, 20);
+        let builder = SvgBuilder::new(WIDTH, HEIGHT).rect(p, 100, 50, Colour::Black);
         let svg = builder.build();
         assert_eq!(
             "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"20\" width=\"100\" height=\"50\" stroke=\"black\" fill=\"none\"/></svg>",
@@ -230,12 +216,12 @@ mod tests {
     }
 
     #[test]
-    fn test_svg_with_line() {
-        let builder =
-            SvgBuilder::new(WIDTH, HEIGHT).line(50, 50, 100, 100, Colour::Rgb(200, 200, 200));
+    fn test_svg_with_simple_path() {
+        let points = vec![Point::new(50, 50), Point::new(100, 100)];
+        let builder = SvgBuilder::new(WIDTH, HEIGHT).path(points, Colour::Rgb(200, 200, 200));
         let svg = builder.build();
         assert_eq!(
-            "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M50 50 L100 100\" stroke=\"rgb(200, 200, 200)\"/></svg>",
+            "<svg version=\"1.1\" width=\"300\" height=\"200\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M50 50 L100 100\" stroke=\"rgb(200, 200, 200)\" fill=\"none\"/></svg>",
             svg
         );
     }

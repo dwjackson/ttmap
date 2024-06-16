@@ -1,0 +1,2 @@
+grid 10, 10
+entity circle at 5, 5 radius 2 

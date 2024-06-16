@@ -143,6 +143,37 @@ impl<T> Graph<T> {
         seen.insert(handle);
         cycle_found
     }
+
+    pub fn connected_components(&self) -> Vec<Vec<NodeHandle>> {
+        let mut connected_components = Vec::new();
+        let mut visited = vec![false; self.nodes.len()];
+        for i in 0..self.nodes.len() {
+            // Skip already-visited nodes
+            if visited[i] {
+                continue;
+            }
+            let h = NodeHandle(i);
+            let component = self.bfs(h, &mut visited);
+            connected_components.push(component);
+        }
+        connected_components
+    }
+
+    fn bfs(&self, start: NodeHandle, visited: &mut [bool]) -> Vec<NodeHandle> {
+        let mut nodes = Vec::new();
+        let mut stack = vec![start];
+        while let Some(h) = stack.pop() {
+            if visited[h.0] {
+                continue;
+            }
+            nodes.push(h);
+            visited[h.0] = true;
+            for e in self.nodes[h.0].edges.iter() {
+                stack.push(*e);
+            }
+        }
+        nodes
+    }
 }
 
 #[cfg(test)]
@@ -246,5 +277,30 @@ mod tests {
         let h1 = NodeHandle(2);
         let h2 = NodeHandle(2);
         assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_connected_components() {
+        let mut g: Graph<i32> = Graph::new();
+        let n1 = g.add_node(1);
+        let n2 = g.add_node(2);
+        let n3 = g.add_node(3);
+        let n4 = g.add_node(4);
+        g.add_edge(n1, n2);
+        g.add_edge(n3, n4);
+        let cc = g.connected_components();
+        assert_eq!(cc.len(), 2);
+        let c1 = &cc[0];
+        let correct_nodes1 = [0, 1];
+        assert_eq!(c1.len(), correct_nodes1.len());
+        for x in correct_nodes1.into_iter() {
+            assert!(c1.contains(&NodeHandle(x)));
+        }
+        let c2 = &cc[1];
+        let correct_nodes2 = [2, 3];
+        assert_eq!(c2.len(), correct_nodes2.len());
+        for x in correct_nodes2.into_iter() {
+            assert!(c2.contains(&NodeHandle(x)));
+        }
     }
 }
