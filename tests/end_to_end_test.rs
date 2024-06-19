@@ -47,6 +47,16 @@ fn test_xor_line() {
     run_test("xor_line_test");
 }
 
+#[test]
+fn test_cross() {
+    run_test("cross_test");
+}
+
+#[test]
+fn test_t_junction() {
+    run_test("t_junction_test");
+}
+
 fn run_test(test_name: &str) {
     let tests_path = Path::new(TESTS_DIR);
 

@@ -156,16 +156,22 @@ impl SvgMapDrawing {
                 .filter(|h| map.graph.find_node(**h).unwrap().edge_count() == 1)
                 .copied()
                 .collect();
-            if endpoints.len() != 2 {
-                panic!("Too many endpoints (only 2 are allowed)");
+            for chunk in endpoints.chunks(2) {
+                let start = chunk[0];
+                let end = if chunk.len() == 1 {
+                    // There is an odd number of edges so arbitrarily pick an edge to draw to
+                    endpoints[0]
+                } else {
+                    chunk[1]
+                };
+                let path = map.graph.find_path(start, end).unwrap();
+                let points: Vec<Point> = path
+                    .iter()
+                    .map(|h| *map.graph.find_node(*h).unwrap().data())
+                    .collect();
+                let points = scale_points(&points, self.dim);
+                self = self.path(points);
             }
-            let path = map.graph.find_path(endpoints[0], endpoints[1]).unwrap();
-            let points: Vec<Point> = path
-                .iter()
-                .map(|h| *map.graph.find_node(*h).unwrap().data())
-                .collect();
-            let points = scale_points(&points, self.dim);
-            self = self.path(points);
         }
 
         // Draw entities
