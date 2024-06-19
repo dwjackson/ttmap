@@ -128,8 +128,8 @@ impl SvgMapDrawing {
         for cycle in cycles.iter() {
             let points: Vec<Point> = cycle
                 .iter()
-                .map(|h| map.graph.data(*h))
-                .filter(|p| map.contains_point(**p))
+                .map(|h| *map.graph.find_node(*h).unwrap().data())
+                .filter(|p| map.contains_point(*p))
                 .map(|p| p.scale(self.dim))
                 .collect();
             self = self.polygon(points);
@@ -139,32 +139,31 @@ impl SvgMapDrawing {
         let polygon_points: HashSet<Point> = cycles
             .iter()
             .flatten()
-            .map(|h| *map.graph.data(*h))
+            .map(|h| *map.graph.find_node(*h).unwrap().data())
             .collect();
         let connected_components = map.graph.connected_components();
         for cc in connected_components.iter().filter(|c| c.len() > 1) {
-            let mut points: Vec<Point> = cc
+            let handles: Vec<NodeHandle> = cc
                 .iter()
-                .map(|h| *map.graph.data(*h))
-                .filter(|p| !polygon_points.contains(p))
+                .filter(|h| !polygon_points.contains(map.graph.find_node(**h).unwrap().data()))
+                .copied()
                 .collect();
-            if points.is_empty() {
+            if handles.is_empty() {
                 continue;
             }
-            let origin = Point::origin();
-            let start = *points
+            let endpoints: Vec<NodeHandle> = handles
                 .iter()
-                .max_by(|a, b| {
-                    let da = a.taxicab_distance(&origin);
-                    let db = b.taxicab_distance(&origin);
-                    da.cmp(&db)
-                })
-                .unwrap();
-            points.sort_by(|a, b| {
-                let da = a.taxicab_distance(&start);
-                let db = b.taxicab_distance(&start);
-                da.cmp(&db)
-            });
+                .filter(|h| map.graph.find_node(**h).unwrap().edge_count() == 1)
+                .copied()
+                .collect();
+            if endpoints.len() != 2 {
+                panic!("Too many endpoints (only 2 are allowed)");
+            }
+            let path = map.graph.find_path(endpoints[0], endpoints[1]).unwrap();
+            let points: Vec<Point> = path
+                .iter()
+                .map(|h| *map.graph.find_node(*h).unwrap().data())
+                .collect();
             let points = scale_points(&points, self.dim);
             self = self.path(points);
         }

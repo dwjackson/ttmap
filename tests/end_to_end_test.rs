@@ -37,6 +37,16 @@ fn test_large_circle_entity() {
     run_test("large_circle_test");
 }
 
+#[test]
+fn test_xor_rect() {
+    run_test("xor_rect_test");
+}
+
+#[test]
+fn test_xor_line() {
+    run_test("xor_line_test");
+}
+
 fn run_test(test_name: &str) {
     let tests_path = Path::new(TESTS_DIR);
 

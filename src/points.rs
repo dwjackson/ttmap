@@ -19,10 +19,6 @@ impl Point {
         Point { x, y }
     }
 
-    pub fn origin() -> Point {
-        Point { x: 0, y: 0 }
-    }
-
     pub fn x(&self) -> usize {
         self.x
     }

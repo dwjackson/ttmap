@@ -8,13 +8,14 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use std::collections::HashSet;
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeHandle(usize);
 
 #[derive(Debug)]
-struct Node<T> {
+pub struct Node<T> {
     data: T,
     edges: Vec<NodeHandle>,
 }
@@ -32,6 +33,14 @@ impl<T> Node<T> {
 
     fn has_edge(&self, handle: NodeHandle) -> bool {
         self.edges.contains(&handle)
+    }
+
+    pub fn data(&self) -> &T {
+        &self.data
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
     }
 }
 
@@ -73,8 +82,8 @@ impl<T> Graph<T> {
         n2.has_edge(handle1)
     }
 
-    pub fn data(&self, handle: NodeHandle) -> &T {
-        &self.nodes[handle.0].data
+    pub fn find_node(&self, h: NodeHandle) -> Option<&Node<T>> {
+        self.nodes.get(h.0)
     }
 
     pub fn find_cycles(&self) -> Vec<Vec<NodeHandle>> {
@@ -173,6 +182,83 @@ impl<T> Graph<T> {
             }
         }
         nodes
+    }
+
+    pub fn find_path(&self, start: NodeHandle, end: NodeHandle) -> Option<Vec<NodeHandle>> {
+        self.dijkstra(start, end)
+    }
+
+    fn dijkstra(&self, start: NodeHandle, end: NodeHandle) -> Option<Vec<NodeHandle>> {
+        let mut distance = vec![usize::MAX; self.nodes.len()];
+        let mut prev = vec![usize::MIN; self.nodes.len()];
+
+        for i in 0..self.nodes.len() {
+            distance[i] = usize::MAX;
+            prev[i] = 0;
+        }
+
+        distance[start.0] = 0;
+
+        let mut heap = BinaryHeap::new();
+        heap.push(QueueState {
+            dist: 0,
+            handle: start,
+        });
+
+        while let Some(QueueState { dist, handle }) = heap.pop() {
+            if handle == end {
+                // Goal reached
+                let mut p = handle;
+                let mut path = Vec::new();
+                while p != start {
+                    path.push(p);
+                    p = NodeHandle(prev[p.0]);
+                }
+                path.push(start);
+                path.reverse();
+                return Some(path);
+            }
+
+            if dist > distance[handle.0] {
+                // Skip this, there's already a shorter path
+            }
+
+            for e in self.nodes[handle.0].edges.iter() {
+                let s = QueueState {
+                    dist: dist + 1,
+                    handle: *e,
+                };
+
+                if s.dist < distance[s.handle.0] {
+                    heap.push(s);
+                    distance[s.handle.0] = s.dist;
+                    prev[s.handle.0] = handle.0;
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct QueueState {
+    dist: usize,
+    handle: NodeHandle,
+}
+
+impl Ord for QueueState {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .dist
+            .cmp(&self.dist)
+            .then_with(|| self.handle.0.cmp(&other.handle.0))
+    }
+}
+
+impl PartialOrd for QueueState {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -302,5 +388,22 @@ mod tests {
         for x in correct_nodes2.into_iter() {
             assert!(c2.contains(&NodeHandle(x)));
         }
+    }
+
+    #[test]
+    fn test_find_path() {
+        let mut g: Graph<i32> = Graph::new();
+        let h1 = g.add_node(1);
+        let h2 = g.add_node(2);
+        let h3 = g.add_node(3);
+        let h4 = g.add_node(4);
+        g.add_edge(h1, h2);
+        g.add_edge(h2, h3);
+        g.add_edge(h2, h4);
+        g.add_edge(h2, h3);
+        let path = g.find_path(h1, h4).unwrap();
+        let correct_path = vec![h1, h2, h4];
+        assert_eq!(path.len(), correct_path.len());
+        assert_eq!(path, correct_path);
     }
 }

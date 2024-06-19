@@ -1,0 +1,4 @@
+grid 5, 5
+
+rect at 1, 1 width 3 height 2
+xor line along bottom from 2, 2 length 1
