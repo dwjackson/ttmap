@@ -19,7 +19,7 @@ The `ttmap` executable takes a map file name and, optionally, a grid-cell
 dimension, in pixels. It will output an SVG to `stdout`.
 
 ```sh
-$ ttmap [MAP_FILE] [DIMENSION?]
+$ ttmap -f [MAP_FILE] -d [DIMENSION]
 ```
 
 For example, if we have a map called `test.map` and we want each grid cell to
@@ -28,6 +28,8 @@ be 20px by 20px:
 ```sh
 $ ttmap test.map 20 > test.svg
 ```
+
+If no file is provided, the map is read from `stdin`.
 
 # The Language
 
