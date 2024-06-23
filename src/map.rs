@@ -180,9 +180,9 @@ impl SvgMapDrawing {
                 Shape::Circle(radius) => {
                     let (x, y, r) = match entity.position() {
                         EntityPosition::Within => {
-                            let m = self.dim / 2;
-                            let p = entity.point().scale(self.dim) + Point::new(m, m);
-                            let r = m - 1;
+                            let mid = self.dim / 2;
+                            let p = entity.point().scale(self.dim) + Point::new(mid, mid);
+                            let r = mid - 1;
                             (p.x(), p.y(), r)
                         }
                         EntityPosition::At => {
@@ -192,6 +192,13 @@ impl SvgMapDrawing {
                     };
 
                     self.builder = self.builder.circle(x, y, r, Colour::Black);
+                }
+                Shape::Square => {
+                    let side = self.dim / 5 * 3; // 60% of dim
+                    let offset = (self.dim - side) / 2;
+                    let delta = Point::new(offset, offset);
+                    let p = entity.point().scale(self.dim) + delta;
+                    self.builder = self.builder.rect(p, side, side, Colour::Black);
                 }
             }
         }

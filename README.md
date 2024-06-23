@@ -115,3 +115,11 @@ given radius:
 entity circle at [X], [Y] radius [RADIUS] 
 ```
 
+### Squares
+
+To create a square within a particular grid-square:
+
+```txt
+entity square within [X], [Y]
+```
+

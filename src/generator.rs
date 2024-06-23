@@ -153,6 +153,7 @@ fn handle_entity(
                 return Err(out_of_bounds(position));
             }
         }
+        Shape::Square => (),
     }
     let entity = Entity::new(entity_node.shape, entity_node.point, entity_node.position);
     map.add_entity(entity);

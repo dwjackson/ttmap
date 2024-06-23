@@ -102,4 +102,5 @@ pub enum LineOrientation {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Shape {
     Circle(usize),
+    Square,
 }

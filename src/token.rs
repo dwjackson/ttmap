@@ -47,4 +47,5 @@ pub enum TokenType {
     Top,
     Bottom,
     Length,
+    Square,
 }

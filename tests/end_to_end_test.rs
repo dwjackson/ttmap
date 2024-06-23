@@ -57,6 +57,11 @@ fn test_t_junction() {
     run_test("t_junction_test");
 }
 
+#[test]
+fn test_square_entity_within_cell() {
+    run_test("square_entity_test");
+}
+
 fn run_test(test_name: &str) {
     let tests_path = Path::new(TESTS_DIR);
 

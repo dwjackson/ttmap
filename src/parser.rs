@@ -10,13 +10,14 @@
 
 use crate::ast::GridDimensionsNode;
 
-use super::ast::{AbstractSyntaxTree, AstNode, AstNodeType, EntityNode, ShapeNode};
-use super::compile_error::{CompileError, CompileErrorType, SyntaxError};
-use super::entities::EntityPosition;
-use super::lexer::lex;
-use super::points::Point;
-use super::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
-use super::token::{Token, TokenType};
+use crate::ast::{AbstractSyntaxTree, AstNode, AstNodeType, EntityNode, ShapeNode};
+use crate::compile_error::{CompileError, CompileErrorType, SyntaxError};
+use crate::entities::EntityPosition;
+use crate::lexer::lex;
+use crate::points::Point;
+use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
+use crate::source_position::SourcePosition;
+use crate::token::{Token, TokenType};
 
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, CompileError> {
     let tokens = lex(input)?;
@@ -135,12 +136,13 @@ impl Parser {
     fn parse_entity(&mut self) -> Result<AstNode, CompileError> {
         let node_position = self.accept(TokenType::Entity)?.position;
         let shape_token_type = self.parse_shape()?;
+        let position_position: SourcePosition;
         let position: EntityPosition;
         if self.next_matches(TokenType::Within) {
-            self.accept(TokenType::Within)?;
+            position_position = self.accept(TokenType::Within)?.position;
             position = EntityPosition::Within;
         } else if self.next_matches(TokenType::At) {
-            self.accept(TokenType::At)?;
+            position_position = self.accept(TokenType::At)?.position;
             position = EntityPosition::At;
         } else if !self.is_at_end() {
             let tok = self.peek().unwrap();
@@ -173,6 +175,16 @@ impl Parser {
                 } as usize;
                 Shape::Circle(radius)
             }
+            TokenType::Square => {
+                if matches!(position, EntityPosition::At) {
+                    return Err(CompileError::new(
+                        CompileErrorType::InvalidPosition,
+                        position_position.line,
+                        position_position.col,
+                    ));
+                }
+                Shape::Square
+            }
             _ => {
                 panic!("Unexpected shape token type {:?}", shape_token_type);
             }
@@ -195,7 +207,7 @@ impl Parser {
                 tok.position.line,
                 tok.position.col,
             ))
-        } else if self.next_matches(TokenType::Circle) {
+        } else if self.next_matches_any(&[TokenType::Circle, TokenType::Square]) {
             Ok(self.consume()?.token_type)
         } else {
             let token = self.consume()?;
@@ -324,6 +336,25 @@ mod tests {
         assert!(matches!(entity.shape, Shape::Circle(0)));
         assert_eq!(entity.point.x(), 5);
         assert_eq!(entity.point.y(), 7);
+    }
+
+    #[test]
+    fn test_parse_square_entity_within_cell() {
+        let input = "grid 10, 10\nentity square within 5,7";
+        let ast = parse(input).expect("Bad parse");
+        let entity = entity_at_index(&ast, 1);
+        assert!(matches!(entity.shape, Shape::Square));
+        assert_eq!(entity.point.x(), 5);
+        assert_eq!(entity.point.y(), 7);
+    }
+
+    #[test]
+    fn test_parse_square_entity_at_cell_is_invalid() {
+        let input = "grid 10, 10\nentity square at 5,7";
+        match parse(input) {
+            Ok(_) => panic!("Should fail"),
+            Err(e) => assert!(matches!(e.error_type, CompileErrorType::InvalidPosition)),
+        }
     }
 
     #[test]
