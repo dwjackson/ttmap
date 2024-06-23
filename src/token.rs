@@ -49,4 +49,5 @@ pub enum TokenType {
     Length,
     Square,
     Stair,
+    Ladder,
 }

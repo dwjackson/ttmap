@@ -80,6 +80,7 @@ impl Lexer {
             ("from", TokenType::From),
             ("length", TokenType::Length),
             ("stair", TokenType::Stair),
+            ("ladder", TokenType::Ladder),
         ];
         if let Some(index) = keywords
             .iter()
@@ -207,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_lex_keywords() {
-        let input = "grid at width height rect xor square stair";
+        let input = "grid at width height rect xor square stair ladder";
         let correct_token_types = vec![
             TokenType::Grid,
             TokenType::At,
@@ -217,6 +218,7 @@ mod tests {
             TokenType::Xor,
             TokenType::Square,
             TokenType::Stair,
+            TokenType::Ladder,
         ];
         test_lex(input, &correct_token_types);
     }

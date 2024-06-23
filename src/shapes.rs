@@ -104,4 +104,5 @@ pub enum Shape {
     Circle(usize),
     Square,
     Stair,
+    Ladder,
 }

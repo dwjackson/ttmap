@@ -153,8 +153,7 @@ fn handle_entity(
                 return Err(out_of_bounds(position));
             }
         }
-        Shape::Square => (),
-        Shape::Stair => (),
+        Shape::Square | Shape::Stair | Shape::Ladder => (),
     }
     let entity = Entity::new(entity_node.shape, entity_node.point, entity_node.position);
     map.add_entity(entity);

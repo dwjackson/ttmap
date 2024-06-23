@@ -19,7 +19,12 @@ use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
 use crate::source_position::SourcePosition;
 use crate::token::{Token, TokenType};
 
-const ENTITY_SHAPES: [TokenType; 3] = [TokenType::Circle, TokenType::Square, TokenType::Stair];
+const ENTITY_SHAPES: [TokenType; 4] = [
+    TokenType::Circle,
+    TokenType::Square,
+    TokenType::Stair,
+    TokenType::Ladder,
+];
 
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, CompileError> {
     let tokens = lex(input)?;
@@ -179,23 +184,21 @@ impl Parser {
             }
             TokenType::Square => {
                 if matches!(position, EntityPosition::At) {
-                    return Err(CompileError::new(
-                        CompileErrorType::InvalidPosition,
-                        position_position.line,
-                        position_position.col,
-                    ));
+                    return Err(invalid_position(position_position));
                 }
                 Shape::Square
             }
             TokenType::Stair => {
                 if matches!(position, EntityPosition::At) {
-                    return Err(CompileError::new(
-                        CompileErrorType::InvalidPosition,
-                        position_position.line,
-                        position_position.col,
-                    ));
+                    return Err(invalid_position(position_position));
                 }
                 Shape::Stair
+            }
+            TokenType::Ladder => {
+                if matches!(position, EntityPosition::At) {
+                    return Err(invalid_position(position_position));
+                }
+                Shape::Ladder
             }
             _ => {
                 panic!("Unexpected shape token type {:?}", shape_token_type);
@@ -295,6 +298,14 @@ fn syntax_error(expected: TokenType, token: &Token) -> CompileError {
     CompileError::new(err_type, token.position.line, token.position.col)
 }
 
+fn invalid_position(position_position: SourcePosition) -> CompileError {
+    CompileError::new(
+        CompileErrorType::InvalidPosition,
+        position_position.line,
+        position_position.col,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -382,6 +393,25 @@ mod tests {
     #[test]
     fn test_parse_stair_entity_at_cell_is_invalid() {
         let input = "grid 10, 10\nentity stair at 5,7";
+        match parse(input) {
+            Ok(_) => panic!("Should fail"),
+            Err(e) => assert!(matches!(e.error_type, CompileErrorType::InvalidPosition)),
+        }
+    }
+
+    #[test]
+    fn test_parse_ladder_entity_within_cell() {
+        let input = "grid 10, 10\nentity ladder within 5,7";
+        let ast = parse(input).expect("Bad parse");
+        let entity = entity_at_index(&ast, 1);
+        assert!(matches!(entity.shape, Shape::Ladder));
+        assert_eq!(entity.point.x(), 5);
+        assert_eq!(entity.point.y(), 7);
+    }
+
+    #[test]
+    fn test_parse_ladder_entity_at_cell_is_invalid() {
+        let input = "grid 10, 10\nentity ladder at 5,7";
         match parse(input) {
             Ok(_) => panic!("Should fail"),
             Err(e) => assert!(matches!(e.error_type, CompileErrorType::InvalidPosition)),

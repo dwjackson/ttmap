@@ -178,48 +178,16 @@ impl SvgMapDrawing {
         for entity in map.entities().iter() {
             match entity.shape() {
                 Shape::Circle(radius) => {
-                    let (x, y, r) = match entity.position() {
-                        EntityPosition::Within => {
-                            let mid = self.dim / 2;
-                            let p = entity.point().scale(self.dim) + Point::new(mid, mid);
-                            let r = mid - 1;
-                            (p.x(), p.y(), r)
-                        }
-                        EntityPosition::At => {
-                            let p = entity.point().scale(self.dim);
-                            (p.x(), p.y(), radius * self.dim)
-                        }
-                    };
-
-                    self.builder = self.builder.circle(x, y, r, Colour::Black);
+                    self = self.circle_entity(entity, radius);
                 }
                 Shape::Square => {
-                    let side = self.dim * 3 / 5; // 60% of dim
-                    let offset = (self.dim - side) / 2;
-                    let delta = Point::new(offset, offset);
-                    let p = entity.point().scale(self.dim) + delta;
-                    self.builder = self.builder.rect(p, side, side, Colour::Black);
+                    self = self.square_entity(entity);
                 }
                 Shape::Stair => {
-                    let height = self.dim * 3 / 5; // 60% of dim
-                    let offset = (self.dim - height) / 2;
-                    let delta = Point::new(offset, offset);
-                    let riser = self.dim / 5; // 20% of dim
-                    let origin = entity.point().scale(self.dim) + delta;
-                    let points = [
-                        (0, 2 * riser),
-                        (0, 3 * riser),
-                        (height, height),
-                        (height, 0),
-                        (2 * riser, 0),
-                        (2 * riser, riser),
-                        (riser, riser),
-                        (riser, 2 * riser),
-                    ]
-                    .iter()
-                    .map(|(x, y)| Point::new(*x, *y) + origin)
-                    .collect::<Vec<Point>>();
-                    self.builder = self.builder.polygon(points, Colour::Black);
+                    self = self.stair_entity(entity);
+                }
+                Shape::Ladder => {
+                    self = self.ladder_entity(entity);
                 }
             }
         }
@@ -240,6 +208,79 @@ impl SvgMapDrawing {
 
     fn path(mut self, points: Vec<Point>) -> Self {
         self.builder = self.builder.path(points, Colour::Black);
+        self
+    }
+
+    fn circle_entity(mut self, entity: &Entity, radius: usize) -> Self {
+        let (x, y, r) = match entity.position() {
+            EntityPosition::Within => {
+                let mid = self.dim / 2;
+                let p = entity.point().scale(self.dim) + Point::new(mid, mid);
+                let r = mid - 1;
+                (p.x(), p.y(), r)
+            }
+            EntityPosition::At => {
+                let p = entity.point().scale(self.dim);
+                (p.x(), p.y(), radius * self.dim)
+            }
+        };
+
+        self.builder = self.builder.circle(x, y, r, Colour::Black);
+        self
+    }
+
+    fn square_entity(mut self, entity: &Entity) -> Self {
+        let side = self.dim * 3 / 5; // 60% of dim
+        let offset = (self.dim - side) / 2;
+        let delta = Point::new(offset, offset);
+        let p = entity.point().scale(self.dim) + delta;
+        self.builder = self.builder.rect(p, side, side, Colour::Black);
+        self
+    }
+
+    fn stair_entity(mut self, entity: &Entity) -> Self {
+        let height = self.dim * 3 / 5; // 60% of dim
+        let offset = (self.dim - height) / 2;
+        let delta = Point::new(offset, offset);
+        let riser = self.dim / 5; // 20% of dim
+        let origin = entity.point().scale(self.dim) + delta;
+        let points = [
+            (0, 2 * riser),
+            (0, 3 * riser),
+            (height, height),
+            (height, 0),
+            (2 * riser, 0),
+            (2 * riser, riser),
+            (riser, riser),
+            (riser, 2 * riser),
+        ]
+        .iter()
+        .map(|(x, y)| Point::new(*x, *y) + origin)
+        .collect::<Vec<Point>>();
+        self.builder = self.builder.polygon(points, Colour::Black);
+        self
+    }
+
+    fn ladder_entity(mut self, entity: &Entity) -> Self {
+        let height = self.dim * 3 / 5; // 60% of dim
+        let offset = (self.dim - height) / 2;
+        let delta = Point::new(offset, offset);
+        let l = self.dim / 5; // 20% of dim is ladder dimension
+        let origin = entity.point().scale(self.dim) + delta;
+        let left_rail_points = vec![Point::new(l, 0) + origin, Point::new(l, 3 * l) + origin];
+        let right_rail_points = left_rail_points
+            .iter()
+            .map(|p| *p + Point::new(l, 0))
+            .collect::<Vec<Point>>();
+        let top_rung = vec![Point::new(l, l) + origin, Point::new(2 * l, l) + origin];
+        let bottom_rung = vec![
+            Point::new(l, 2 * l) + origin,
+            Point::new(2 * l, 2 * l) + origin,
+        ];
+        let paths = [left_rail_points, right_rail_points, top_rung, bottom_rung];
+        for points in paths.into_iter() {
+            self.builder = self.builder.path(points, Colour::Black);
+        }
         self
     }
 }
