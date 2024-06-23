@@ -154,6 +154,7 @@ fn handle_entity(
             }
         }
         Shape::Square => (),
+        Shape::Stair => (),
     }
     let entity = Entity::new(entity_node.shape, entity_node.point, entity_node.position);
     map.add_entity(entity);

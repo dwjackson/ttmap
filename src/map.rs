@@ -194,11 +194,32 @@ impl SvgMapDrawing {
                     self.builder = self.builder.circle(x, y, r, Colour::Black);
                 }
                 Shape::Square => {
-                    let side = self.dim / 5 * 3; // 60% of dim
+                    let side = self.dim * 3 / 5; // 60% of dim
                     let offset = (self.dim - side) / 2;
                     let delta = Point::new(offset, offset);
                     let p = entity.point().scale(self.dim) + delta;
                     self.builder = self.builder.rect(p, side, side, Colour::Black);
+                }
+                Shape::Stair => {
+                    let height = self.dim * 3 / 5; // 60% of dim
+                    let offset = (self.dim - height) / 2;
+                    let delta = Point::new(offset, offset);
+                    let riser = self.dim / 5; // 20% of dim
+                    let origin = entity.point().scale(self.dim) + delta;
+                    let points = [
+                        (0, 2 * riser),
+                        (0, 3 * riser),
+                        (height, height),
+                        (height, 0),
+                        (2 * riser, 0),
+                        (2 * riser, riser),
+                        (riser, riser),
+                        (riser, 2 * riser),
+                    ]
+                    .iter()
+                    .map(|(x, y)| Point::new(*x, *y) + origin)
+                    .collect::<Vec<Point>>();
+                    self.builder = self.builder.polygon(points, Colour::Black);
                 }
             }
         }

@@ -103,4 +103,5 @@ pub enum LineOrientation {
 pub enum Shape {
     Circle(usize),
     Square,
+    Stair,
 }

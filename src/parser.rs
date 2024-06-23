@@ -19,6 +19,8 @@ use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
 use crate::source_position::SourcePosition;
 use crate::token::{Token, TokenType};
 
+const ENTITY_SHAPES: [TokenType; 3] = [TokenType::Circle, TokenType::Square, TokenType::Stair];
+
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, CompileError> {
     let tokens = lex(input)?;
     let parser = Parser { tokens, i: 0 };
@@ -185,6 +187,16 @@ impl Parser {
                 }
                 Shape::Square
             }
+            TokenType::Stair => {
+                if matches!(position, EntityPosition::At) {
+                    return Err(CompileError::new(
+                        CompileErrorType::InvalidPosition,
+                        position_position.line,
+                        position_position.col,
+                    ));
+                }
+                Shape::Stair
+            }
             _ => {
                 panic!("Unexpected shape token type {:?}", shape_token_type);
             }
@@ -207,7 +219,7 @@ impl Parser {
                 tok.position.line,
                 tok.position.col,
             ))
-        } else if self.next_matches_any(&[TokenType::Circle, TokenType::Square]) {
+        } else if self.next_matches_any(&ENTITY_SHAPES) {
             Ok(self.consume()?.token_type)
         } else {
             let token = self.consume()?;
@@ -351,6 +363,25 @@ mod tests {
     #[test]
     fn test_parse_square_entity_at_cell_is_invalid() {
         let input = "grid 10, 10\nentity square at 5,7";
+        match parse(input) {
+            Ok(_) => panic!("Should fail"),
+            Err(e) => assert!(matches!(e.error_type, CompileErrorType::InvalidPosition)),
+        }
+    }
+
+    #[test]
+    fn test_parse_stair_entity_within_cell() {
+        let input = "grid 10, 10\nentity stair within 5,7";
+        let ast = parse(input).expect("Bad parse");
+        let entity = entity_at_index(&ast, 1);
+        assert!(matches!(entity.shape, Shape::Stair));
+        assert_eq!(entity.point.x(), 5);
+        assert_eq!(entity.point.y(), 7);
+    }
+
+    #[test]
+    fn test_parse_stair_entity_at_cell_is_invalid() {
+        let input = "grid 10, 10\nentity stair at 5,7";
         match parse(input) {
             Ok(_) => panic!("Should fail"),
             Err(e) => assert!(matches!(e.error_type, CompileErrorType::InvalidPosition)),

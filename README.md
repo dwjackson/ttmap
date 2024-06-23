@@ -123,3 +123,10 @@ To create a square within a particular grid-square:
 entity square within [X], [Y]
 ```
 
+### Stairs
+
+To create a staircase within a particular grid-square:
+
+```txt
+entity stair within [X], [Y]
+```

@@ -62,6 +62,11 @@ fn test_square_entity_within_cell() {
     run_test("square_entity_test");
 }
 
+#[test]
+fn test_stair_entity_within_cell() {
+    run_test("stair_entity_test");
+}
+
 fn run_test(test_name: &str) {
     let tests_path = Path::new(TESTS_DIR);
 
