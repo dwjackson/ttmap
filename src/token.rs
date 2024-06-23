@@ -8,19 +8,19 @@
  * Copyright (c) 2024 David Jackson
  */
 
-use super::source_position::SourcePosition;
+use super::source_location::SourceLocation;
 
 #[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
-    pub position: SourcePosition,
+    pub location: SourceLocation,
 }
 
 impl Token {
     pub fn new(token_type: TokenType, line: usize, col: usize) -> Token {
         Token {
             token_type,
-            position: SourcePosition { line, col },
+            location: SourceLocation { line, col },
         }
     }
 }

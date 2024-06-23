@@ -16,7 +16,7 @@ use crate::entities::Entity;
 use crate::map::Map;
 use crate::points::Point;
 use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
-use crate::source_position::SourcePosition;
+use crate::source_location::SourceLocation;
 
 pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
     let dims = find_grid_dimensions(ast);
@@ -32,14 +32,14 @@ pub fn generate_map(ast: &AbstractSyntaxTree) -> Result<Map, CompileError> {
             AstNodeType::GridDimensions(_) => (),
             AstNodeType::Shape(shape_node) => match shape_node {
                 ShapeNode::Rect(rect) => {
-                    handle_rect(&mut map, rect, ast_node.position())?;
+                    handle_rect(&mut map, rect, ast_node.location())?;
                 }
                 ShapeNode::Line(line) => {
-                    handle_line(&mut map, line, ast_node.position())?;
+                    handle_line(&mut map, line, ast_node.location())?;
                 }
             },
             AstNodeType::Entity(entity_node) => {
-                handle_entity(&mut map, entity_node, ast_node.position())?;
+                handle_entity(&mut map, entity_node, ast_node.location())?;
             }
         }
     }
@@ -60,7 +60,7 @@ fn find_grid_dimensions(ast: &AbstractSyntaxTree) -> Option<&GridDimensionsNode>
     }
 }
 
-fn handle_rect(map: &mut Map, rect: &Rect, position: SourcePosition) -> Result<(), CompileError> {
+fn handle_rect(map: &mut Map, rect: &Rect, location: SourceLocation) -> Result<(), CompileError> {
     // Connect all the points on the perimiter of the rectangle
     let x = rect.point().x();
     let y = rect.point().y();
@@ -69,34 +69,34 @@ fn handle_rect(map: &mut Map, rect: &Rect, position: SourcePosition) -> Result<(
     for i in 0..rect.width() {
         let start = point(x + i, y);
         let end = point(x + i + 1, y);
-        handle_rect_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, location)?;
     }
 
     // Connect the "left side" of the rectangle
     for i in 0..rect.height() {
         let start = point(x, y + i);
         let end = point(x, y + i + 1);
-        handle_rect_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, location)?;
     }
 
     // Connect the "bottom side" of the rectangle
     for i in 0..rect.width() {
         let start = point(x + i, y + rect.height());
         let end = point(x + i + 1, y + rect.height());
-        handle_rect_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, location)?;
     }
 
     // Connect the "right side" of the rectangle
     for i in 0..rect.height() {
         let start = point(x + rect.width(), y + i);
         let end = point(x + rect.width(), y + i + 1);
-        handle_rect_points(map, rect, start, end, position)?;
+        handle_rect_points(map, rect, start, end, location)?;
     }
 
     Ok(())
 }
 
-fn handle_line(map: &mut Map, line: &Line, position: SourcePosition) -> Result<(), CompileError> {
+fn handle_line(map: &mut Map, line: &Line, location: SourceLocation) -> Result<(), CompileError> {
     let start = match line.orientation() {
         LineOrientation::Left | LineOrientation::Top => line.start(),
         LineOrientation::Right => line.start().right(),
@@ -113,8 +113,8 @@ fn handle_line(map: &mut Map, line: &Line, position: SourcePosition) -> Result<(
         if !(map.point_exists(p) && map.point_exists(p2)) {
             return Err(CompileError::new(
                 CompileErrorType::OutOfBounds,
-                position.line,
-                position.col,
+                location.line,
+                location.col,
             ));
         }
 
@@ -132,25 +132,25 @@ fn handle_line(map: &mut Map, line: &Line, position: SourcePosition) -> Result<(
 fn handle_entity(
     map: &mut Map,
     entity_node: &EntityNode,
-    position: SourcePosition,
+    location: SourceLocation,
 ) -> Result<(), CompileError> {
     match entity_node.shape {
         Shape::Circle(r) => {
             // Check for out-of-bounds
             let center = entity_node.point;
             if r > center.x() {
-                return Err(out_of_bounds(position));
+                return Err(out_of_bounds(location));
             }
             let left = Point::new(center.x() - r, center.y());
             if r > center.y() {
-                return Err(out_of_bounds(position));
+                return Err(out_of_bounds(location));
             }
             let top = Point::new(center.x(), center.y() - r);
             let right = Point::new(center.x() + r, center.y());
             let bottom = Point::new(center.x() + r, center.y());
             let points = [center, left, top, right, bottom];
             if points.iter().any(|p| !map.point_exists(*p)) {
-                return Err(out_of_bounds(position));
+                return Err(out_of_bounds(location));
             }
         }
         Shape::Square | Shape::Stair | Shape::Ladder => (),
@@ -160,8 +160,8 @@ fn handle_entity(
     Ok(())
 }
 
-fn out_of_bounds(position: SourcePosition) -> CompileError {
-    CompileError::new(CompileErrorType::OutOfBounds, position.line, position.col)
+fn out_of_bounds(location: SourceLocation) -> CompileError {
+    CompileError::new(CompileErrorType::OutOfBounds, location.line, location.col)
 }
 
 fn handle_rect_points(
@@ -169,13 +169,13 @@ fn handle_rect_points(
     rect: &Rect,
     start: Point,
     end: Point,
-    position: SourcePosition,
+    location: SourceLocation,
 ) -> Result<(), CompileError> {
     if !map.point_exists(start) || !map.point_exists(end) {
         return Err(CompileError::new(
             CompileErrorType::OutOfBounds,
-            position.line,
-            position.col,
+            location.line,
+            location.col,
         ));
     }
 
@@ -318,8 +318,8 @@ mod tests {
         ast.add_node(dimensions(10, 10));
         let line = Line::new(LineOrientation::Left, Point::new(1, 2), 4, ShapeBoolean::Or);
         let shape_node = ShapeNode::Line(line);
-        let position = SourcePosition { line: 1, col: 1 };
-        let ast_node = AstNode::new(AstNodeType::Shape(shape_node), position);
+        let location = SourceLocation { line: 1, col: 1 };
+        let ast_node = AstNode::new(AstNodeType::Shape(shape_node), location);
         ast.add_node(ast_node);
         let map = generate_map(&ast).expect("Bad generate");
         assert!(map.are_connected(Point::new(1, 3), Point::new(1, 4)));
@@ -336,8 +336,8 @@ mod tests {
             ShapeBoolean::Or,
         );
         let shape_node = ShapeNode::Line(line);
-        let position = SourcePosition { line: 1, col: 1 };
-        let ast_node = AstNode::new(AstNodeType::Shape(shape_node), position);
+        let location = SourceLocation { line: 1, col: 1 };
+        let ast_node = AstNode::new(AstNodeType::Shape(shape_node), location);
         ast.add_node(ast_node);
         let map = generate_map(&ast).expect("Bad generate");
         assert!(map.are_connected(Point::new(3, 3), Point::new(4, 3)));
@@ -346,15 +346,15 @@ mod tests {
     fn dimensions(width: u32, height: u32) -> AstNode {
         let grid_dimensions_node = GridDimensionsNode::new(width, height);
         let node_type = AstNodeType::GridDimensions(grid_dimensions_node);
-        let position = SourcePosition { line: 1, col: 1 };
-        AstNode::new(node_type, position)
+        let location = SourceLocation { line: 1, col: 1 };
+        AstNode::new(node_type, location)
     }
 
     fn rect_node(rect: Rect) -> AstNode {
         let shape_node = ShapeNode::Rect(rect);
         let node_type = AstNodeType::Shape(shape_node);
-        let position = SourcePosition { line: 1, col: 1 };
-        AstNode::new(node_type, position)
+        let location = SourceLocation { line: 1, col: 1 };
+        AstNode::new(node_type, location)
     }
 
     fn circle_entity(point: Point, radius: usize) -> AstNode {
@@ -364,7 +364,7 @@ mod tests {
             position: EntityPosition::At,
         };
         let node_type = AstNodeType::Entity(entity_node);
-        let position = SourcePosition { line: 1, col: 1 };
-        AstNode::new(node_type, position)
+        let location = SourceLocation { line: 1, col: 1 };
+        AstNode::new(node_type, location)
     }
 }

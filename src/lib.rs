@@ -20,6 +20,6 @@ pub mod map;
 mod parser;
 mod points;
 mod shapes;
-mod source_position;
+mod source_location;
 mod svg;
 mod token;

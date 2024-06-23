@@ -40,6 +40,6 @@ fn format_compile_error(err: CompileError) -> String {
     };
     format!(
         "[{},{}] ERROR: {}",
-        err.position.line, err.position.col, message
+        err.location.line, err.location.col, message
     )
 }

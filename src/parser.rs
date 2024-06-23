@@ -16,7 +16,7 @@ use crate::entities::EntityPosition;
 use crate::lexer::lex;
 use crate::points::Point;
 use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
-use crate::source_position::SourcePosition;
+use crate::source_location::SourceLocation;
 use crate::token::{Token, TokenType};
 
 const ENTITY_SHAPES: [TokenType; 4] = [
@@ -69,12 +69,12 @@ impl Parser {
     }
 
     fn parse_grid_dimensions(&mut self) -> Result<AstNode, CompileError> {
-        let position = self.accept(TokenType::Grid)?.position;
+        let location = self.accept(TokenType::Grid)?.location;
         let width = self.accept_number()?;
         self.accept(TokenType::Comma)?;
         let height = self.accept_number()?;
         let node_type = AstNodeType::GridDimensions(GridDimensionsNode::new(width, height));
-        let node = AstNode::new(node_type, position);
+        let node = AstNode::new(node_type, location);
         Ok(node)
     }
 
@@ -88,7 +88,7 @@ impl Parser {
     }
 
     fn parse_rect(&mut self, boolean_op: ShapeBoolean) -> Result<AstNode, CompileError> {
-        let position = self.accept(TokenType::Rect)?.position;
+        let location = self.accept(TokenType::Rect)?.location;
         self.accept(TokenType::At)?;
         let point = self.parse_point()?;
         self.accept(TokenType::Width)?;
@@ -98,12 +98,12 @@ impl Parser {
         let rect = Rect::new(point, width, height, boolean_op);
         let shape_node = ShapeNode::Rect(rect);
         let node_type = AstNodeType::Shape(shape_node);
-        let node = AstNode::new(node_type, position);
+        let node = AstNode::new(node_type, location);
         Ok(node)
     }
 
     fn parse_line(&mut self, boolean_op: ShapeBoolean) -> Result<AstNode, CompileError> {
-        let position = self.accept(TokenType::Line)?.position;
+        let location = self.accept(TokenType::Line)?.location;
         self.accept(TokenType::Along)?;
         let orientation = if self.next_matches(TokenType::Left) {
             LineOrientation::Left
@@ -114,11 +114,11 @@ impl Parser {
         } else if self.next_matches(TokenType::Bottom) {
             LineOrientation::Bottom
         } else {
-            let pos = self.consume()?.position;
+            let loc = self.consume()?.location;
             return Err(CompileError::new(
                 CompileErrorType::InvalidOrientation,
-                pos.line,
-                pos.col,
+                loc.line,
+                loc.col,
             ));
         };
         self.consume()?; // Consume the orientation token
@@ -129,7 +129,7 @@ impl Parser {
         let line = Line::new(orientation, start, length, boolean_op);
         let shape_node = ShapeNode::Line(line);
         let node_type = AstNodeType::Shape(shape_node);
-        let ast_node = AstNode::new(node_type, position);
+        let ast_node = AstNode::new(node_type, location);
         Ok(ast_node)
     }
 
@@ -141,29 +141,29 @@ impl Parser {
     }
 
     fn parse_entity(&mut self) -> Result<AstNode, CompileError> {
-        let node_position = self.accept(TokenType::Entity)?.position;
+        let node_location = self.accept(TokenType::Entity)?.location;
         let shape_token_type = self.parse_shape()?;
-        let position_position: SourcePosition;
+        let position_location: SourceLocation;
         let position: EntityPosition;
         if self.next_matches(TokenType::Within) {
-            position_position = self.accept(TokenType::Within)?.position;
+            position_location = self.accept(TokenType::Within)?.location;
             position = EntityPosition::Within;
         } else if self.next_matches(TokenType::At) {
-            position_position = self.accept(TokenType::At)?.position;
+            position_location = self.accept(TokenType::At)?.location;
             position = EntityPosition::At;
         } else if !self.is_at_end() {
             let tok = self.peek().unwrap();
             return Err(CompileError::new(
                 CompileErrorType::InvalidPosition,
-                tok.position.line,
-                tok.position.col,
+                tok.location.line,
+                tok.location.col,
             ));
         } else {
             let tok = self.tokens.last().unwrap();
             return Err(CompileError::new(
                 CompileErrorType::UnexpectedEndOfFile,
-                tok.position.line,
-                tok.position.col,
+                tok.location.line,
+                tok.location.col,
             ));
         }
         let x = self.accept_number()? as usize;
@@ -184,19 +184,19 @@ impl Parser {
             }
             TokenType::Square => {
                 if matches!(position, EntityPosition::At) {
-                    return Err(invalid_position(position_position));
+                    return Err(invalid_position(position_location));
                 }
                 Shape::Square
             }
             TokenType::Stair => {
                 if matches!(position, EntityPosition::At) {
-                    return Err(invalid_position(position_position));
+                    return Err(invalid_position(position_location));
                 }
                 Shape::Stair
             }
             TokenType::Ladder => {
                 if matches!(position, EntityPosition::At) {
-                    return Err(invalid_position(position_position));
+                    return Err(invalid_position(position_location));
                 }
                 Shape::Ladder
             }
@@ -210,7 +210,7 @@ impl Parser {
             point,
             position,
         });
-        let node = AstNode::new(node_type, node_position);
+        let node = AstNode::new(node_type, node_location);
         Ok(node)
     }
 
@@ -219,8 +219,8 @@ impl Parser {
             let tok = self.tokens.last().unwrap();
             Err(CompileError::new(
                 CompileErrorType::UnexpectedEndOfFile,
-                tok.position.line,
-                tok.position.col,
+                tok.location.line,
+                tok.location.col,
             ))
         } else if self.next_matches_any(&ENTITY_SHAPES) {
             Ok(self.consume()?.token_type)
@@ -228,8 +228,8 @@ impl Parser {
             let token = self.consume()?;
             Err(CompileError::new(
                 CompileErrorType::InvalidShape,
-                token.position.line,
-                token.position.col,
+                token.location.line,
+                token.location.col,
             ))
         }
     }
@@ -295,10 +295,10 @@ fn token_type_matches(token: &Token, token_type: TokenType) -> bool {
 fn syntax_error(expected: TokenType, token: &Token) -> CompileError {
     let actual = token.token_type;
     let err_type = CompileErrorType::SyntaxError(SyntaxError::new(expected, actual));
-    CompileError::new(err_type, token.position.line, token.position.col)
+    CompileError::new(err_type, token.location.line, token.location.col)
 }
 
-fn invalid_position(position_position: SourcePosition) -> CompileError {
+fn invalid_position(position_position: SourceLocation) -> CompileError {
     CompileError::new(
         CompileErrorType::InvalidPosition,
         position_position.line,

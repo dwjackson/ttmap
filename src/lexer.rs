@@ -199,8 +199,8 @@ mod tests {
                 err.error_type,
                 CompileErrorType::UnrecognizedKeyword
             ));
-            assert_eq!(err.position.line, 1);
-            assert_eq!(err.position.col, 1);
+            assert_eq!(err.location.line, 1);
+            assert_eq!(err.location.col, 1);
         } else {
             panic!("Should fail");
         }
@@ -236,8 +236,8 @@ mod tests {
         let tokens = lex(input).expect("bad lex");
         let at_token = &tokens[5];
         assert!(matches!(at_token.token_type, TokenType::At));
-        assert_eq!(at_token.position.line, 2);
-        assert_eq!(at_token.position.col, 6);
+        assert_eq!(at_token.location.line, 2);
+        assert_eq!(at_token.location.col, 6);
     }
 
     #[test]
