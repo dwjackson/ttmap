@@ -26,10 +26,10 @@ impl CompileError {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum CompileErrorType {
     InvalidCharacter,
-    UnrecognizedKeyword,
+    UnrecognizedKeyword(String),
     InvalidNumber,
     UnexpectedEndOfFile,
     SyntaxError(SyntaxError),

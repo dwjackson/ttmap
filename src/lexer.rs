@@ -81,6 +81,7 @@ impl Lexer {
             ("length", TokenType::Length),
             ("stair", TokenType::Stair),
             ("ladder", TokenType::Ladder),
+            ("x", TokenType::X),
         ];
         if let Some(index) = keywords
             .iter()
@@ -89,7 +90,7 @@ impl Lexer {
             Ok(Token::new(keywords[index].1, self.line, col))
         } else {
             Err(CompileError::new(
-                CompileErrorType::UnrecognizedKeyword,
+                CompileErrorType::UnrecognizedKeyword(identifier),
                 self.line,
                 col,
             ))
@@ -197,7 +198,7 @@ mod tests {
         if let Err(err) = lex(input) {
             assert!(matches!(
                 err.error_type,
-                CompileErrorType::UnrecognizedKeyword
+                CompileErrorType::UnrecognizedKeyword(_)
             ));
             assert_eq!(err.location.line, 1);
             assert_eq!(err.location.col, 1);
@@ -208,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_lex_keywords() {
-        let input = "grid at width height rect xor square stair ladder";
+        let input = "grid at width height rect xor square stair ladder x";
         let correct_token_types = vec![
             TokenType::Grid,
             TokenType::At,
@@ -219,6 +220,7 @@ mod tests {
             TokenType::Square,
             TokenType::Stair,
             TokenType::Ladder,
+            TokenType::X,
         ];
         test_lex(input, &correct_token_types);
     }

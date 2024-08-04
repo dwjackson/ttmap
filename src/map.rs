@@ -189,6 +189,9 @@ impl SvgMapDrawing {
                 Shape::Ladder => {
                     self = self.ladder_entity(entity);
                 }
+                Shape::X => {
+                    self = self.x_entity(entity);
+                }
             }
         }
         self.builder.build()
@@ -281,6 +284,20 @@ impl SvgMapDrawing {
         for points in paths.into_iter() {
             self.builder = self.builder.path(points, Colour::Black);
         }
+        self
+    }
+
+    fn x_entity(mut self, entity: &Entity) -> Self {
+        let offset = self.dim / 5; // 20% of dim
+        let delta = Point::new(offset, offset);
+        let p = entity.point().scale(self.dim) + delta;
+        let side = self.dim * 3 / 5; // 60% of dim
+        let horiz = Point::new(side, 0);
+        let vert = Point::new(0, side);
+        let points1 = vec![p, p + horiz + vert];
+        self.builder = self.builder.path(points1, Colour::Black);
+        let points2 = vec![p + vert, p + horiz];
+        self.builder = self.builder.path(points2, Colour::Black);
         self
     }
 }

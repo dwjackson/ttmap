@@ -29,7 +29,9 @@ fn format_compile_error(err: CompileError) -> String {
             &format!("Expected {:?}, got {:?}", e.expected(), e.actual())
         }
         CompileErrorType::InvalidCharacter => "Invalid character",
-        CompileErrorType::UnrecognizedKeyword => "Unrecognized keyword",
+        CompileErrorType::UnrecognizedKeyword(keyword) => {
+            &format!("Unrecognized keyword: \"{}\"", keyword)
+        }
         CompileErrorType::InvalidNumber => "Invalid number",
         CompileErrorType::UnexpectedEndOfFile => "Unexpected end-of-file",
         CompileErrorType::InvalidShape => "Invalid shape",

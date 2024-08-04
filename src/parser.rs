@@ -19,11 +19,12 @@ use crate::shapes::{Line, LineOrientation, Rect, Shape, ShapeBoolean};
 use crate::source_location::SourceLocation;
 use crate::token::{Token, TokenType};
 
-const ENTITY_SHAPES: [TokenType; 4] = [
+const ENTITY_SHAPES: [TokenType; 5] = [
     TokenType::Circle,
     TokenType::Square,
     TokenType::Stair,
     TokenType::Ladder,
+    TokenType::X,
 ];
 
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, CompileError> {
@@ -199,6 +200,12 @@ impl Parser {
                     return Err(invalid_position(position_location));
                 }
                 Shape::Ladder
+            }
+            TokenType::X => {
+                if matches!(position, EntityPosition::At) {
+                    return Err(invalid_position(position_location));
+                }
+                Shape::X
             }
             _ => {
                 panic!("Unexpected shape token type {:?}", shape_token_type);

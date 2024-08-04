@@ -105,4 +105,5 @@ pub enum Shape {
     Square,
     Stair,
     Ladder,
+    X,
 }

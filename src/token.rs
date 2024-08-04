@@ -50,4 +50,5 @@ pub enum TokenType {
     Square,
     Stair,
     Ladder,
+    X,
 }
