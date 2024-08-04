@@ -138,3 +138,11 @@ To create a ladder within a particular grid-square:
 ```txt
 entity ladder within [X], [Y]
 ```
+
+### Xs
+
+To create an "X" within a particular grid-square:
+
+```txt
+entity x within [X], [Y]
+```
